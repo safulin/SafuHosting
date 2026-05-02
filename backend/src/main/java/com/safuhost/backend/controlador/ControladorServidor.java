@@ -65,4 +65,26 @@ public class ControladorServidor {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> eliminarServidor(@PathVariable Long id) {
+        try {
+            servicio.eliminarServidor(id);
+            return ResponseEntity.ok("Servidor eliminado correctamente");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    // @PathVariable coge el id de la URL (/api/servidores/1 → id = 1)
+    // @RequestBody coge el JSON del cuerpo de la petición y lo convierte en un objeto Servidor
+    public ResponseEntity<?> actualizarServidor(@PathVariable Long id, @RequestBody Servidor datos) {
+        try {
+            Servidor servidor = servicio.actualizarServidor(id, datos);
+            return ResponseEntity.ok(servidor);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

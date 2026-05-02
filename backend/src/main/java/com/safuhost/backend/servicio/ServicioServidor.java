@@ -195,4 +195,48 @@ public class ServicioServidor {
         return repositorio.save(servidor);
     }
 
+    public void eliminarServidor(Long id) {
+        // 1. Buscamos el servidor en SQLite para obtener su idContenedor
+        Servidor servidor = obtenerPorId(id);
+
+        // 2. Intentamos parar y eliminar el contenedor de Docker
+        // Usamos try-catch independientes porque puede que el contenedor ya no exista en Docker
+        // (por ejemplo si el usuario lo borró manualmente desde Docker Desktop)
+        // En ese caso no queremos que falle, queremos seguir adelante y borrarlo de SQLite igualmente
+        try {
+            dockerClient.stopContainerCmd(servidor.getIdContenedor()).exec();
+        } catch (RuntimeException e) {
+            // El contenedor ya estaba parado o no existe en Docker, ignoramos el error y continuamos
+        }
+
+        try {
+            dockerClient.removeContainerCmd(servidor.getIdContenedor()).exec();
+        } catch (RuntimeException e) {
+            // El contenedor ya no existe en Docker, ignoramos el error y continuamos
+        }
+
+        // 3. Borramos el registro de SQLite pase lo que pase con Docker
+        repositorio.deleteById(id);
+    }
+
+    public Servidor actualizarServidor(Long id, Servidor datos) {
+        // 1. Buscamos el servidor existente en SQLite
+        Servidor servidor = obtenerPorId(id);
+
+        // 2. Sobreescribimos solo los campos que se pueden cambiar en caliente
+        // Puerto, idContenedor y version NO se tocan porque están ligados al contenedor de Docker
+        servidor.setNombre(datos.getNombre());
+        servidor.setDificultad(datos.getDificultad());
+        servidor.setModoJuego(datos.getModoJuego());
+        servidor.setPvp(datos.isPvp());
+        servidor.setUsarWhitelist(datos.isUsarWhitelist());
+        servidor.setListaBlanca(datos.getListaBlanca());
+        servidor.setAdministradores(datos.getAdministradores());
+        servidor.setModoOnline(datos.isModoOnline());
+        servidor.setUrlIcono(datos.getUrlIcono());
+
+        // 3. Guardamos los cambios en SQLite y devolvemos el servidor actualizado
+        return repositorio.save(servidor);
+    }
+
 }

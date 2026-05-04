@@ -5,9 +5,6 @@ import com.github.dockerjava.api.DockerClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-
 
 import com.safuhost.backend.modelo.Servidor;
 import com.github.dockerjava.api.command.CreateContainerResponse; // este import es el que hace que docker nos devuelva el id del contenedor de docker
@@ -15,7 +12,6 @@ import com.github.dockerjava.api.model.ExposedPort; // Define la "puerta interna
 import com.github.dockerjava.api.model.HostConfig;  // Configuración del "exterior": define cómo el contenedor se relaciona con tu
 // PC (puertos y carpetas físicas)
 import com.github.dockerjava.api.model.Ports; // El gestor de "túneles" que mapea tus puertos de Windows con los puertos internos de Docker
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,45 +28,21 @@ public class ServicioServidor {
     @Autowired
     private DockerClient dockerClient;
 
-    // Esta función busca el siguiente puerto libre empezando desde el 25565 que es el puerto que usa minecraft default,
-    // igualmente hace una doble comprobacion con windows para asegurarnos que no exsistan programas de otras aplicaciones como en mi caso rustdesk
-    // o asseto server y no cree colisiones, lo unico que no consigo encontrar la manera es de si alguna de estas no esta en uso, que windoes la detecte igual
-    //pero como esta pensado para usarse en un windows server, o una maquina dedicada eso no deberia ser un problema
+    // Servicio que busca puertos libres en el sistema y en la BBDD
+    @Autowired
+    private ServicioPuertos servicioPuertos;
 
-    public Integer encontrarPuertoLibre() {
-        int puerto = 25565;
+    // Servicio que se encarga de hablar con Docker (estado de contenedores y envío de comandos)
+    @Autowired
+    private ServicioDocker servicioDocker;
 
-        while (true) {
-            // 1. Preguntamos a SQLite si el puerto ya está asignado a otro servidor (aunque esté apagado)
-            // estariamos haciendo algo asi: SELECT 1 FROM servidor WHERE puerto = 25565 LIMIT 1;
-            // aqui Spring Data JPA, si nos diera minimo un 1 nos dara true, si da null o 0, dara false,
-            boolean ocupadoEnBBDD = repositorio.existsByPuerto(puerto);
+    // Servicio que gestiona los mods (listar, instalar desde Modrinth, eliminar)
+    @Autowired
+    private ServicioMods servicioMods;
 
-            // 2. Preguntamos a Windows si el puerto está siendo usado por otro programa en este momento
-            boolean ocupadoEnSistema = !puertoDisponibleEnSistema(puerto);
-
-            // Si el puerto NO está en nuestra DB Y tampoco está bloqueado por Windows, nos lo quedamos
-            if (!ocupadoEnBBDD && !ocupadoEnSistema) {
-                return puerto; // Rompe el bucle infinito y devuelve el puerto encontrado
-            }
-
-            // Si estaba ocupado, le sumamos 1 y el bucle vuelve a preguntar (ej. 25566, 25567...)
-            puerto++;
-        }
-    }
-
-    // Función "espía" que intenta abrir el puerto físicamente en Windows para ver si explota
-    // serversocket es una herramienta de java, se usa para crear programas que se queden escuchando, pero como lo que hace es tocar la puerta
-    // del puerto, si lo intenta y windows lo deniega da fallo, asique nos sirve para que salte la excepcion.
-    private boolean puertoDisponibleEnSistema(int puerto) {
-        try (ServerSocket serverSocket = new ServerSocket(puerto)) {
-            return true; // Éxito: Lo hemos podido abrir, significa que está libre
-        } catch (IOException e) {
-            return false; // Error: Ha saltado una excepción, alguien ya lo está usando
-        }
-    }
-
-
+    // Servicio que gestiona la whitelist (lista blanca de jugadores)
+    @Autowired
+    private ServicioWhitelist servicioWhitelist;
 
     public Servidor crearServidor(Servidor nuevo) {
 
@@ -80,7 +52,7 @@ public class ServicioServidor {
             throw new RuntimeException("¡Error! Ya existe un servidor con el nombre: " + nuevo.getNombre());
         }
         // 1. Buscamos un puerto disponible en el sistema y en la DB
-        Integer puertoLibre = encontrarPuertoLibre();
+        Integer puertoLibre = servicioPuertos.encontrarPuertoLibre();
         nuevo.setPuerto(puertoLibre);
 
         // 2. Definimos la carpeta donde se guardará el mundo (Ej: C:/mc-servers/MiMundo)
@@ -240,229 +212,45 @@ public class ServicioServidor {
         return repositorio.save(servidor);
     }
 
+    // ===== A partir de aquí, ServicioServidor solo hace de coordinador. =====
+    // ===== Cada método delega en el servicio especializado correspondiente para mantener el Principio de Responsabilidad Única. =====
+    // ===== Así el ControladorServidor sigue hablando solo con ServicioServidor sin necesidad de cambiar nada. =====
+
     public String obtenerEstado(Long id) {
-        // 1. Buscamos el servidor en SQLite para obtener su idContenedor
-        Servidor servidor = obtenerPorId(id);
-
-        // 2. Preguntamos a Docker el estado real del contenedor
-        // Usamos listContainersCmd en vez de inspectContainerCmd porque inspect intenta parsear
-        // los volúmenes y falla con rutas de Windows (C:/mc-servers/... tiene dos puntos)
-        // withShowAll(true) es necesario para que también devuelva contenedores parados, no solo los activos
-        List<com.github.dockerjava.api.model.Container> contenedores = dockerClient
-                .listContainersCmd()
-                .withShowAll(true)
-                .withIdFilter(java.util.Collections.singletonList(servidor.getIdContenedor()))
-                .exec();
-
-        // 3. Si Docker no encuentra el contenedor devolvemos DESCONOCIDO
-        if (contenedores.isEmpty()) {
-            return "DESCONOCIDO";
-        }
-
-        // 4. Traducimos el estado de Docker a los estados que usa nuestra app
-        // getState() devuelve: "running", "exited", "paused", "created"...
-        String estadoDocker = contenedores.get(0).getState();
-        String estadoApp;
-        switch (estadoDocker) {
-            case "running" -> estadoApp = "EN_LINEA";
-            case "exited"  -> estadoApp = "APAGADO";
-            case "paused"  -> estadoApp = "PAUSADO";
-            default        -> estadoApp = "DESCONOCIDO";
-        }
-
-        // 5. Sincronizamos el estado en SQLite por si estaba desactualizado
-        servidor.setEstado(estadoApp);
-        repositorio.save(servidor);
-
-        return estadoApp;
-    }
-
-    public List<String> obtenerWhitelist(Long id) {
-        Servidor servidor = obtenerPorId(id);
-
-        // Si la lista está vacía o es null devolvemos una lista vacía
-        if (servidor.getListaBlanca() == null || servidor.getListaBlanca().isBlank()) {
-            return new ArrayList<>();
-        }
-
-        // La listaBlanca se guarda como "Jugador1,Jugador2,Jugador3"
-        // La dividimos por comas y devolvemos cada nombre como elemento de la lista
-        return Arrays.asList(servidor.getListaBlanca().split(","));
-    }
-
-    public Servidor añadirAWhitelist(Long id, String jugador) {
-        Servidor servidor = obtenerPorId(id);
-
-        // Construimos la nueva lista añadiendo el jugador
-        String listaActual = servidor.getListaBlanca();
-        if (listaActual == null || listaActual.isBlank()) {
-            // Si la lista estaba vacía el jugador es el primero
-            servidor.setListaBlanca(jugador);
-        } else if (!listaActual.contains(jugador)) {
-            // Solo añadimos si el jugador no estaba ya en la lista
-            servidor.setListaBlanca(listaActual + "," + jugador);
-        }
-
-        // Si el servidor está en línea le mandamos el comando directamente a Docker
-        // así no hace falta reiniciarlo para que surta efecto
-        if ("EN_LINEA".equals(servidor.getEstado())) {
-            ejecutarComandoEnContenedor(servidor.getIdContenedor(), "whitelist add " + jugador);
-        }
-
-        return repositorio.save(servidor);
-    }
-
-    public Servidor quitarDeWhitelist(Long id, String jugador) {
-        Servidor servidor = obtenerPorId(id);
-
-        // Filtramos la lista quitando el jugador que queremos eliminar
-        if (servidor.getListaBlanca() != null) {
-            List<String> lista = new ArrayList<>(Arrays.asList(servidor.getListaBlanca().split(",")));
-            lista.remove(jugador);
-            servidor.setListaBlanca(String.join(",", lista));
-        }
-
-        // Si el servidor está en línea le mandamos el comando directamente a Docker
-        if ("EN_LINEA".equals(servidor.getEstado())) {
-            ejecutarComandoEnContenedor(servidor.getIdContenedor(), "whitelist remove " + jugador);
-        }
-
-        return repositorio.save(servidor);
-    }
-
-    public List<String> listarMods(Long id) {
-        Servidor servidor = obtenerPorId(id);
-
-        // La carpeta mods está dentro del directorio del servidor que se montó como volumen al crearlo
-        java.io.File carpetaMods = new java.io.File("C:/mc-servers/" + servidor.getNombre() + "/mods");
-
-        // Si la carpeta no existe (todavía no se ha subido ningún mod) devolvemos una lista vacía
-        if (!carpetaMods.exists() || !carpetaMods.isDirectory()) {
-            return new ArrayList<>();
-        }
-
-        // Filtramos solo los archivos .jar (los mods de Minecraft son siempre .jar)
-        java.io.File[] archivos = carpetaMods.listFiles((directorio, nombre) -> nombre.endsWith(".jar"));
-        if (archivos == null) {
-            return new ArrayList<>();
-        }
-
-        List<String> nombres = new ArrayList<>();
-        for (java.io.File archivo : archivos) {
-            nombres.add(archivo.getName());
-        }
-        return nombres;
-    }
-
-    public Object buscarModsModrinth(String query) {
-        // RestTemplate es la clase de Spring para hacer peticiones HTTP a APIs externas
-        // Lo usamos para llamar a la API pública y gratuita de Modrinth
-        org.springframework.web.client.RestTemplate http = new org.springframework.web.client.RestTemplate();
-
-        // limit=20 para no traer demasiados resultados de golpe
-        String url = "https://api.modrinth.com/v2/search?query=" + query + "&limit=20";
-
-        // getForObject hace un GET y nos devuelve directamente el JSON convertido en un objeto
-        return http.getForObject(url, Object.class);
-    }
-
-    public String instalarModModrinth(Long id, String modrinthId) throws java.io.IOException {
-        Servidor servidor = obtenerPorId(id);
-
-        // Solo permitimos servidores FORGE o FABRIC porque vanilla no soporta mods
-        if (!"FORGE".equals(servidor.getTipo()) && !"FABRIC".equals(servidor.getTipo())) {
-            throw new RuntimeException("Solo se pueden instalar mods en servidores FORGE o FABRIC, este servidor es " + servidor.getTipo());
-        }
-
-        org.springframework.web.client.RestTemplate http = new org.springframework.web.client.RestTemplate();
-
-        // 1. Pedimos a Modrinth las versiones disponibles de este mod filtradas por loader y versión MC
-        // El loader debe ir en minúsculas (forge / fabric) entre comillas y entre corchetes (formato JSON array)
-        String loader = servidor.getTipo().toLowerCase();
-        String versionMC = servidor.getVersion();
-        String urlVersiones = "https://api.modrinth.com/v2/project/" + modrinthId + "/version"
-                + "?loaders=[\"" + loader + "\"]"
-                + "&game_versions=[\"" + versionMC + "\"]";
-
-        List<java.util.Map<String, Object>> versiones = http.getForObject(urlVersiones, List.class);
-
-        if (versiones == null || versiones.isEmpty()) {
-            throw new RuntimeException("No hay ninguna versión de este mod compatible con " + loader + " " + versionMC);
-        }
-
-        // 2. Cogemos la primera versión (la más reciente compatible) y dentro de ella el primer archivo .jar
-        java.util.Map<String, Object> primeraVersion = versiones.get(0);
-        List<java.util.Map<String, Object>> archivos = (List<java.util.Map<String, Object>>) primeraVersion.get("files");
-        java.util.Map<String, Object> archivo = archivos.get(0);
-
-        String urlDescarga = (String) archivo.get("url");
-        String nombreArchivo = (String) archivo.get("filename");
-
-        // 3. Creamos la carpeta mods si no existe
-        java.io.File carpetaMods = new java.io.File("C:/mc-servers/" + servidor.getNombre() + "/mods");
-        if (!carpetaMods.exists()) {
-            carpetaMods.mkdirs();
-        }
-
-        // 4. Descargamos el archivo .jar desde el CDN de Modrinth y lo guardamos en disco
-        // getForObject con byte[].class nos devuelve el contenido binario del archivo
-        byte[] contenido = http.getForObject(urlDescarga, byte[].class);
-        java.io.File destino = new java.io.File(carpetaMods, nombreArchivo);
-        java.nio.file.Files.write(destino.toPath(), contenido);
-
-        return nombreArchivo;
-    }
-
-    public void eliminarMod(Long id, String nombreMod) {
-        Servidor servidor = obtenerPorId(id);
-
-        // Validamos el nombre por seguridad igual que al subir
-        if (nombreMod.contains("..") || nombreMod.contains("/") || nombreMod.contains("\\")) {
-            throw new RuntimeException("Nombre de archivo inválido");
-        }
-
-        java.io.File mod = new java.io.File("C:/mc-servers/" + servidor.getNombre() + "/mods/" + nombreMod);
-        if (!mod.exists()) {
-            throw new RuntimeException("No existe el mod: " + nombreMod);
-        }
-
-        if (!mod.delete()) {
-            throw new RuntimeException("No se pudo eliminar el mod: " + nombreMod);
-        }
+        return servicioDocker.obtenerEstado(id);
     }
 
     public void enviarComandoConsola(Long id, String comando) {
         Servidor servidor = obtenerPorId(id);
-        ejecutarComandoEnContenedor(servidor.getIdContenedor(), comando);
+        servicioDocker.ejecutarComandoEnContenedor(servidor.getIdContenedor(), comando);
     }
 
-    private void ejecutarComandoEnContenedor(String idContenedor, String comando) {
-        // execCreateCmd crea el comando dentro del contenedor pero no lo ejecuta todavía
-        // mc-send-to-console es un script que viene dentro de la imagen itzg/minecraft-server
-        // y sirve para mandar comandos directamente a la consola de Minecraft
-        try {
-            // Dividimos el comando por espacios para pasarlo como argumentos separados a mc-send-to-console
-            // Por ejemplo "say Hola" se convierte en {"mc-send-to-console", "say", "Hola"}
-            String[] partes = comando.split(" ");
-            String[] cmdCompleto = new String[partes.length + 1];
-            cmdCompleto[0] = "mc-send-to-console";
-            System.arraycopy(partes, 0, cmdCompleto, 1, partes.length);
+    public List<String> listarMods(Long id) {
+        return servicioMods.listarMods(id);
+    }
 
-            com.github.dockerjava.api.command.ExecCreateCmdResponse exec = dockerClient
-                    .execCreateCmd(idContenedor)
-                    .withUser("1000") // la imagen itzg/minecraft-server exige que los exec se ejecuten como user 1000
-                    .withCmd(cmdCompleto)
-                    .exec();
+    public Object buscarModsModrinth(String query) {
+        return servicioMods.buscarModsModrinth(query);
+    }
 
-            // execStartCmd ejecuta el comando que acabamos de crear
-            dockerClient.execStartCmd(exec.getId())
-                    .exec(new com.github.dockerjava.core.command.ExecStartResultCallback())
-                    .awaitCompletion();
-        } catch (Exception e) {
-            // Si falla el comando en Docker no interrumpimos el flujo,
-            // el cambio ya quedó guardado en SQLite igualmente
-            throw new RuntimeException("No se pudo ejecutar el comando en el contenedor: " + e.getMessage());
-        }
+    public String instalarModModrinth(Long id, String modrinthId) throws java.io.IOException {
+        return servicioMods.instalarModModrinth(id, modrinthId);
+    }
+
+    public void eliminarMod(Long id, String nombreMod) {
+        servicioMods.eliminarMod(id, nombreMod);
+    }
+
+    public List<String> obtenerWhitelist(Long id) {
+        return servicioWhitelist.obtenerWhitelist(id);
+    }
+
+    public Servidor añadirAWhitelist(Long id, String jugador) {
+        return servicioWhitelist.añadirAWhitelist(id, jugador);
+    }
+
+    public Servidor quitarDeWhitelist(Long id, String jugador) {
+        return servicioWhitelist.quitarDeWhitelist(id, jugador);
     }
 
 }

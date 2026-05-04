@@ -6,11 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="ef9bb6bf-9d02-44da-ad56-ca9bb22a693d" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/controlador/ControladorServidor.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/controlador/ControladorServidor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/servicio/ServicioServidor.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/servicio/ServicioServidor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/configuracion/ConfiguracionDocker.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/configuracion/ConfiguracionDocker.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/configuracion/ConfiguracionWebSocket.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/configuracion/ConfiguracionWebSocket.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/websocket/ConsolaWebSocketHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/backend/src/main/java/com/safuhost/backend/websocket/ConsolaWebSocketHandler.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/target/classes/com/safuhost/backend/controlador/ControladorServidor.class" beforeDir="false" afterPath="$PROJECT_DIR$/backend/target/classes/com/safuhost/backend/controlador/ControladorServidor.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/target/classes/com/safuhost/backend/servicio/ServicioServidor.class" beforeDir="false" afterPath="$PROJECT_DIR$/backend/target/classes/com/safuhost/backend/servicio/ServicioServidor.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/safuhosting.db" beforeDir="false" afterPath="$PROJECT_DIR$/safuhosting.db" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

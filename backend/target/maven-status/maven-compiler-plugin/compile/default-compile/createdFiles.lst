@@ -1,0 +1,4 @@
+com\safuhost\backend\servicio\ServicioPuertos.class
+com\safuhost\backend\servicio\ServicioDocker.class
+com\safuhost\backend\servicio\ServicioWhitelist.class
+com\safuhost\backend\servicio\ServicioMods.class

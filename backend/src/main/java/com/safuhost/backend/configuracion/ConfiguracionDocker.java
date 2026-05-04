@@ -9,7 +9,8 @@ import com.github.dockerjava.transport.DockerHttpClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Configuration
+@Configuration // esta anotacion sirve para que cuando spring inicie, lea este archivo entero y lo carge en memoria, sin la anotacion java solo
+//veria una clase mas y no la leeria
 public class ConfiguracionDocker {
 
     @Bean

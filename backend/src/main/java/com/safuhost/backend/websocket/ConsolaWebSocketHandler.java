@@ -2,7 +2,7 @@ package com.safuhost.backend.websocket;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
-import com.github.dockerjava.api.model.Frame;
+import com.github.dockerjava.api.model.Frame; // representa cada línea que genera el contenedor. Docker no envía texto plano, envía "frames" que contienen el texto más metadatos
 import com.safuhost.backend.modelo.Servidor;
 import com.safuhost.backend.servicio.ServicioServidor;
 import org.springframework.beans.factory.annotation.Autowired;

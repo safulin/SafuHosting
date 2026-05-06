@@ -20,10 +20,15 @@ public class ServicioDocker {
     @Autowired
     private DockerClient dockerClient;
 
+    // Servicio de usuarios para verificar que el servidor pertenece al usuario logueado
+    @Autowired
+    private ServicioUsuario servicioUsuario;
+
     public String obtenerEstado(Long id) {
         // 1. Buscamos el servidor en SQLite para obtener su idContenedor
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // 2. Preguntamos a Docker el estado real del contenedor
         // Usamos listContainersCmd en vez de inspectContainerCmd porque inspect intenta parsear
@@ -70,6 +75,11 @@ public class ServicioDocker {
             cmdCompleto[0] = "mc-send-to-console";
             System.arraycopy(partes, 0, cmdCompleto, 1, partes.length);
 
+            //esto mete mc-send-to-console en el puesto 0 de la array y lo que enviemos despues se partira por espacios en la array
+
+
+            //ExecCreateCmdResponse lo que hace es como crear una comanda que queda a la espera de que la ejecutes, docker te da una id de la comanda,
+            //para que el programa decida cuando se ejecuta
             com.github.dockerjava.api.command.ExecCreateCmdResponse exec = dockerClient
                     .execCreateCmd(idContenedor)
                     .withUser("1000") // la imagen itzg/minecraft-server exige que los exec se ejecuten como user 1000

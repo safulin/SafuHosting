@@ -1,8 +1,11 @@
 package com.safuhost.backend.repositorio;
 
 import com.safuhost.backend.modelo.Servidor;
+import com.safuhost.backend.modelo.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 
@@ -18,4 +21,8 @@ public interface RepositorioServidor extends JpaRepository<Servidor, Long> {
 
     //Busca si ya exsiste el nombre que le mandan SELECT COUNT(*) FROM servidor WHERE nombre = (servidor.nombre)
     boolean existsByNombre(String nombre);
+
+    // Devuelve solo los servidores cuyo propietario es el usuario indicado
+    // Spring Data JPA traduce esto a: SELECT * FROM servidor WHERE propietario_id = ?
+    List<Servidor> findByPropietario(Usuario propietario);
 }

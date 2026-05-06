@@ -28,21 +28,22 @@ public class ServicioServidor {
     @Autowired
     private DockerClient dockerClient;
 
-    // Servicio que busca puertos libres en el sistema y en la BBDD
     @Autowired
     private ServicioPuertos servicioPuertos;
 
-    // Servicio que se encarga de hablar con Docker (estado de contenedores y envío de comandos)
     @Autowired
     private ServicioDocker servicioDocker;
 
-    // Servicio que gestiona los mods (listar, instalar desde Modrinth, eliminar)
     @Autowired
     private ServicioMods servicioMods;
 
     // Servicio que gestiona la whitelist (lista blanca de jugadores)
     @Autowired
     private ServicioWhitelist servicioWhitelist;
+
+    // Servicio de usuarios para saber quien es el usuario logueado y verificar propiedad
+    @Autowired
+    private ServicioUsuario servicioUsuario;
 
     public Servidor crearServidor(Servidor nuevo) {
 
@@ -51,6 +52,11 @@ public class ServicioServidor {
             // Si el nombre ya existe, lanzamos una excepción y el código se detiene aqui
             throw new RuntimeException("¡Error! Ya existe un servidor con el nombre: " + nuevo.getNombre());
         }
+
+        // Asociamos el servidor al usuario que está logueado en este momento
+        // Lo sacamos del SecurityContextHolder de Spring (lo metió ahí FiltroJwt)
+        nuevo.setPropietario(servicioUsuario.getUsuarioActual());
+
         // 1. Buscamos un puerto disponible en el sistema y en la DB
         Integer puertoLibre = servicioPuertos.encontrarPuertoLibre();
         nuevo.setPuerto(puertoLibre);
@@ -118,7 +124,7 @@ public class ServicioServidor {
                         .withBinds(new com.github.dockerjava.api.model.Bind(rutaLocal, new com.github.dockerjava.api.model.Volume("/data"))))
                 .exec();
 // CONEXIÓN FÍSICA: Vinculamos la carpeta de Windows (rutaLocal) con la carpeta interna del server (/data)
-// Es vital: sin esto, al borrar el contenedor de Docker se perdería el mundo, los inventarios y los progresos.
+//  sin esto, al borrar el contenedor de Docker se perdería el mundo, los inventarios y los progresos.
         // 6. Ordenamos a Docker que encienda el servidor inmediatamente
         dockerClient.startContainerCmd(container.getId()).exec();
 
@@ -129,8 +135,9 @@ public class ServicioServidor {
     }
 
     public List<Servidor> listarTodos() {
-        return repositorio.findAll(); // el findall es un un metodo de jparepository, que hace un select * from servidor que es la tabla que alverga todos
-        //los datos
+        // Antes devolvíamos todos los servidores. Ahora SOLO los del usuario actual.
+        // Cada usuario solo puede ver sus propios servidores.
+        return repositorio.findByPropietario(servicioUsuario.getUsuarioActual());
     }
 
 
@@ -138,8 +145,13 @@ public class ServicioServidor {
     // Pero ojo, no devuelve un Servidor directamente, devuelve un Optional<Servidor>
     public Servidor obtenerPorId(Long id) {
         // si está vacío (no existe ese id) lanzamos una excepción con un mensaje claro
-        return repositorio.findById(id)
+        Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+
+        // Verificamos que el usuario logueado sea el propietario antes de devolver el servidor
+        // Si no lo es, lanza excepción y devuelve 400
+        servicioUsuario.verificarPropiedad(servidor);
+        return servidor;
     }
 
     public Servidor pararServidor(Long id) {
@@ -212,9 +224,8 @@ public class ServicioServidor {
         return repositorio.save(servidor);
     }
 
-    // ===== A partir de aquí, ServicioServidor solo hace de coordinador. =====
-    // ===== Cada método delega en el servicio especializado correspondiente para mantener el Principio de Responsabilidad Única. =====
-    // ===== Así el ControladorServidor sigue hablando solo con ServicioServidor sin necesidad de cambiar nada. =====
+    // a partir de aqui ServicioServidor solo hace de coordinador.
+    // asi el ControladorServidor sigue hablando solo con ServicioServidor sin necesidad de cambiar nada.
 
     public String obtenerEstado(Long id) {
         return servicioDocker.obtenerEstado(id);

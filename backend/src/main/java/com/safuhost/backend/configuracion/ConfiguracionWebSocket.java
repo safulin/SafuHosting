@@ -7,8 +7,8 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
-//web socket es una manera de no usar http porque seria muy poco eficiente entonces usamos esta tecnologia que abre una conexion donde ni el frontend ni el backend tienen que preguntar para
-//enviar una peticion
+//web socket es una manera de no usar http porque seria muy poco eficiente entonces usamos esta tecnologia que abre una conexion donde ni el frontend
+// ni el backend tienen que preguntar para enviar una peticion
 
 @Configuration // esta anotacion sirve para que cuando spring inicie, lea este archivo entero y lo carge en memoria, sin la anotacion java solo
 //veria una clase mas y no la leeria

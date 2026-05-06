@@ -15,14 +15,19 @@ public class ServicioMods {
     @Autowired
     private RepositorioServidor repositorio;
 
+    // Servicio de usuarios para verificar que el servidor pertenece al usuario logueado
+    @Autowired
+    private ServicioUsuario servicioUsuario;
+
     public List<String> listarMods(Long id) {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
-        // La carpeta mods está dentro del directorio del servidor que se montó como volumen al crearlo
+        // La carpeta mods está dentro del directorio del servidor la creo la imagen de itzg automaticamente al crear el servidor
         java.io.File carpetaMods = new java.io.File("C:/mc-servers/" + servidor.getNombre() + "/mods");
 
-        // Si la carpeta no existe (todavía no se ha subido ningún mod) devolvemos una lista vacía
+        // Si la carpeta no existe devolvemos una lista vacía
         if (!carpetaMods.exists() || !carpetaMods.isDirectory()) {
             return new ArrayList<>();
         }
@@ -49,12 +54,13 @@ public class ServicioMods {
         String url = "https://api.modrinth.com/v2/search?query=" + query + "&limit=20";
 
         // getForObject hace un GET y nos devuelve directamente el JSON convertido en un objeto
-        return http.getForObject(url, Object.class);
+        return http.getForObject(url, Object.class); // object.class le dice a spring que lo convierta en la clase mas sencilla posible
     }
 
     public String instalarModModrinth(Long id, String modrinthId) throws java.io.IOException {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // Solo permitimos servidores FORGE o FABRIC porque vanilla no soporta mods
         if (!"FORGE".equals(servidor.getTipo()) && !"FABRIC".equals(servidor.getTipo())) {
@@ -82,7 +88,8 @@ public class ServicioMods {
         List<java.util.Map<String, Object>> archivos = (List<java.util.Map<String, Object>>) primeraVersion.get("files");
         java.util.Map<String, Object> archivo = archivos.get(0);
 
-        String urlDescarga = (String) archivo.get("url");
+        String urlDescarga = (String) archivo.get("url"); // esto es un cast, es decirle a java oye esto es un string cogelo, si no fuera un estring el valor
+        //de lo que enviamos java nos daria error
         String nombreArchivo = (String) archivo.get("filename");
 
         // 3. Creamos la carpeta mods si no existe
@@ -103,6 +110,7 @@ public class ServicioMods {
     public void eliminarMod(Long id, String nombreMod) {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // Validamos el nombre por seguridad igual que al subir
         if (nombreMod.contains("..") || nombreMod.contains("/") || nombreMod.contains("\\")) {

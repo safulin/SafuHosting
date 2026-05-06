@@ -25,34 +25,36 @@ public class ConsolaWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private ServicioServidor servicio;
 
-    // Guardamos el stream activo de cada sesión para poder cerrarlo cuando el usuario desconecte
-    // ConcurrentHashMap es como un HashMap normal pero seguro para múltiples usuarios a la vez
+    // es un hashmap que guarda de quien es cada consola para cuando un usuario cierre su consola saber cual es el stream de docker que hay que cerrar
+    // ConcurrentHashMap en lugar de HashMap normal porque pueden conectarse varios usuarios a la vez,
+    // cada uno en su propio hilo, y un HashMap normal no es seguro en esa situación.
     private final ConcurrentHashMap<String, Closeable> streamsPorSesion = new ConcurrentHashMap<>();
 
     @Override
     public void afterConnectionEstablished(WebSocketSession sesion) throws Exception {
-        // Extraemos el id del servidor de la URL: /ws/consola/1 → 1
         String ruta = sesion.getUri().getPath();
+        // aqui lo que hacemos es de la ruta extraer un string que coga y la ultima barra leyendo de izquierda a derecha y le sumamos 1 a la posicion
+        //para que quede solo la id del servidor
         Long id = Long.parseLong(ruta.substring(ruta.lastIndexOf('/') + 1));
 
         Servidor servidor = servicio.obtenerPorId(id);
 
         // Arrancamos el stream de logs de Docker
-        // withFollowStream(true) → se queda escuchando continuamente, no para al llegar al final
-        // withStdOut / withStdErr → capturamos tanto la salida normal como los errores
-        // withTail(50) → al conectarse el frontend recibe las últimas 50 líneas del historial
         Closeable stream = dockerClient.logContainerCmd(servidor.getIdContenedor())
-                .withStdOut(true)
-                .withStdErr(true)
-                .withFollowStream(true)
-                .withTail(50)
+                .withStdOut(true) // captura la consola normal de Minecraft
+                .withStdErr(true) // captura también los errores
+                .withFollowStream(true) //no para al llegar al final, se queda escuchando
+                .withTail(50) //al conectarse envía las últimas 50 líneas para que la consola no aparezca vacía
                 .exec(new ResultCallback.Adapter<Frame>() {
                     @Override
                     public void onNext(Frame frame) {
                         try {
                             if (sesion.isOpen()) {
                                 // Cada línea que genera el servidor de Minecraft se envía al frontend por WebSocket
+                                //elgetpayload es el contenido de la línea en bytes
+                                //new String(...).trim() lo convierte a texto
                                 String linea = new String(frame.getPayload()).trim();
+                                // no enviamos líneas vacias
                                 if (!linea.isEmpty()) {
                                     sesion.sendMessage(new TextMessage(linea));
                                 }
@@ -64,6 +66,7 @@ public class ConsolaWebSocketHandler extends TextWebSocketHandler {
                 });
 
         // Guardamos el stream asociado a esta sesión para cerrarlo después
+        //aqui es donde llamamos al hashmap
         streamsPorSesion.put(sesion.getId(), stream);
     }
 

@@ -1,9 +1,13 @@
 package com.safuhost.backend.modelo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import lombok.Data;
 
 @Entity // Define que esta clase es una tabla en la base de datos
@@ -44,4 +48,14 @@ public class Servidor {
     private boolean usarWhitelist; // El interruptor: true (activada) o false (desactivada)
     private String listaBlanca;    // Jugadores permitidos (WHITELIST)
     private boolean modoOnline;    // true (Premium) o false (No-Premium)
+
+    // --- RELACIÓN CON USUARIO PROPIETARIO ---
+    // @ManyToOne significa "muchos servidores pueden pertenecer a un solo usuario"
+    // FetchType.EAGER carga el usuario automáticamente cada vez que cargamos el servidor (necesario para verificar propiedad)
+    // @JoinColumn crea una columna "propietario_id" en la tabla servidor que apunta a usuario.id
+    // @JsonIgnoreProperties evita que al serializar a JSON aparezca la contraseña del usuario o referencias circulares
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "propietario_id")
+    @JsonIgnoreProperties({"password"})
+    private Usuario propietario;
 }

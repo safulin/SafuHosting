@@ -1,0 +1,15 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, sans-serif; background: #1a1a1a; color: #eee; padding: 20px; }
+a { color: #4af; text-decoration: none; }
+button { background: #2a7; color: white; border: none; padding: 8px 14px; cursor: pointer; border-radius: 4px; margin: 2px; }
+button:hover { background: #1a5; }
+button.peligro { background: #c33; }
+button.peligro:hover { background: #911; }
+input, select { background: #333; color: #eee; border: 1px solid #555; padding: 6px; border-radius: 4px; margin: 4px 0; }
+.tarjeta { background: #2a2a2a; padding: 16px; border-radius: 6px; margin: 10px 0; }
+.barra { background: #222; padding: 12px; margin-bottom: 20px; border-radius: 4px; display: flex; gap: 20px; align-items: center; }
+.error { color: #f66; padding: 8px; }
+.ok { color: #6f6; padding: 8px; }
+h1, h2, h3 { margin: 12px 0; }
+table { width: 100%; border-collapse: collapse; }
+td, th { padding: 8px; border-bottom: 1px solid #444; text-align: left; }

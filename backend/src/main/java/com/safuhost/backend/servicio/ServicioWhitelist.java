@@ -20,9 +20,14 @@ public class ServicioWhitelist {
     @Autowired
     private ServicioDocker servicioDocker;
 
+    // Servicio de usuarios para verificar que el servidor pertenece al usuario logueado
+    @Autowired
+    private ServicioUsuario servicioUsuario;
+
     public List<String> obtenerWhitelist(Long id) {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // Si la lista está vacía o es null devolvemos una lista vacía
         if (servidor.getListaBlanca() == null || servidor.getListaBlanca().isBlank()) {
@@ -37,6 +42,7 @@ public class ServicioWhitelist {
     public Servidor añadirAWhitelist(Long id, String jugador) {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // Construimos la nueva lista añadiendo el jugador
         String listaActual = servidor.getListaBlanca();
@@ -60,6 +66,7 @@ public class ServicioWhitelist {
     public Servidor quitarDeWhitelist(Long id, String jugador) {
         Servidor servidor = repositorio.findById(id)
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        servicioUsuario.verificarPropiedad(servidor);
 
         // Filtramos la lista quitando el jugador que queremos eliminar
         if (servidor.getListaBlanca() != null) {

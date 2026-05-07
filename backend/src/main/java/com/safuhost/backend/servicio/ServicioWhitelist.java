@@ -9,6 +9,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+// Servicio que gestiona la lista blanca (whitelist) de jugadores permitidos por servidor.
+// La lista se guarda en SQLite como un String separado por comas dentro del campo listaBlanca de Servidor:
+// "Safu,Pepe,Juan". Lo dividimos al leer y lo unimos con join al guardar.
+
+// Si el servidor esta EN_LINEA tambien mandamos el comando "whitelist add/remove" directamente a la consola
+// de Minecraft via Docker, asi no hace falta reiniciar el servidor para que el cambio surta efecto.
+
+// Lo llama ServicioServidor (que delega los metodos del controlador a este servicio).
+
 @Service
 public class ServicioWhitelist {
 
@@ -55,7 +64,8 @@ public class ServicioWhitelist {
         }
 
         // Si el servidor está en línea le mandamos el comando directamente a Docker
-        // así no hace falta reiniciarlo para que surta efecto
+        // así no hace falta reiniciarlo para que surta efecto.
+        // Si esta apagado no pasa nada, al iniciarlo otra vez itzg lee el campo WHITELIST de las env vars y lo aplica.
         if ("EN_LINEA".equals(servidor.getEstado())) {
             servicioDocker.ejecutarComandoEnContenedor(servidor.getIdContenedor(), "whitelist add " + jugador);
         }
@@ -68,14 +78,15 @@ public class ServicioWhitelist {
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
         servicioUsuario.verificarPropiedad(servidor);
 
-        // Filtramos la lista quitando el jugador que queremos eliminar
+        // Filtramos la lista quitando el jugador que queremos eliminar.
+        // Convertimos a ArrayList porque Arrays.asList devuelve una lista de tamaño fijo (no se puede usar .remove)
         if (servidor.getListaBlanca() != null) {
             List<String> lista = new ArrayList<>(Arrays.asList(servidor.getListaBlanca().split(",")));
             lista.remove(jugador);
             servidor.setListaBlanca(String.join(",", lista));
         }
 
-        // Si el servidor está en línea le mandamos el comando directamente a Docker
+        // Si el servidor está en línea le mandamos el comando directamente a Docker (igual que en añadir)
         if ("EN_LINEA".equals(servidor.getEstado())) {
             servicioDocker.ejecutarComandoEnContenedor(servidor.getIdContenedor(), "whitelist remove " + jugador);
         }

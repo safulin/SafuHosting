@@ -8,7 +8,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Transient;
 import lombok.Data;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity // Define que esta clase es una tabla en la base de datos
 @Data   // Genera automáticamente los Getters, Setters y otros métodos básicos, esto es de una libreria que he metido en mi proyecto,
@@ -48,6 +51,12 @@ public class Servidor {
     private boolean usarWhitelist; // El interruptor: true (activada) o false (desactivada)
     private String listaBlanca;    // Jugadores permitidos (WHITELIST)
     private boolean modoOnline;    // true (Premium) o false (No-Premium)
+
+    // --- MODS A INSTALAR AL CREAR (no se persiste en BD) ---
+    // El frontend puede mandar una lista de IDs de Modrinth al crear el servidor
+    // Se instalan antes de arrancar el contenedor para que el mundo se genere con los mods ya cargados
+    @Transient
+    private List<String> modIniciales = new ArrayList<>();
 
     // --- RELACIÓN CON USUARIO PROPIETARIO ---
     // @ManyToOne significa "muchos servidores pueden pertenecer a un solo usuario"

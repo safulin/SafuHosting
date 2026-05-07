@@ -6,6 +6,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+// Repositorio para la tabla usuario. Igual que con RepositorioServidor, usamos los Query Methods de Spring Data JPA:
+// le pongo el nombre que quiero al metodo siguiendo su convencion (findBy..., existsBy...) y Spring Data JPA
+// genera el SQL automaticamente. Sin escribir SQL a mano.
+
+// Lo usa ServicioUsuario para registrar (existsBy...) y para hacer login (findByUsername).
+// Tambien lo usa ServicioUsuario.getUsuarioActual() para sacar el usuario logueado del SecurityContext.
+
 @Repository
 public interface RepositorioUsuario extends JpaRepository<Usuario, Long> {
 

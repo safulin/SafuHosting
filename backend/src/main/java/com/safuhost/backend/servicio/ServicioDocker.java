@@ -8,6 +8,14 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+// Servicio que centraliza la comunicacion con Docker para acciones que NO son crear/eliminar
+// (eso lo hace ServicioServidor directamente). Aqui esta:
+//  - obtenerEstado: preguntar a Docker si un contenedor esta running, exited, etc.
+//  - ejecutarComandoEnContenedor: enviar un comando a la consola de Minecraft del contenedor
+
+// Lo llaman ServicioServidor (delega aqui), ServicioWhitelist (para mandar whitelist add/remove en caliente),
+// y ServicioMods (indirectamente).
+
 @Service
 public class ServicioDocker {
 
@@ -30,9 +38,10 @@ public class ServicioDocker {
                 .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
         servicioUsuario.verificarPropiedad(servidor);
 
-        // 2. Preguntamos a Docker el estado real del contenedor
+        // 2. Preguntamos a Docker el estado real del contenedor.
         // Usamos listContainersCmd en vez de inspectContainerCmd porque inspect intenta parsear
-        // los volúmenes y falla con rutas de Windows (C:/mc-servers/... tiene dos puntos)
+        // los volúmenes y falla con rutas de Windows (C:/mc-servers/... tiene dos puntos
+        // y la libreria docker-java lo confunde con el separador de puerto de unix).
         // withShowAll(true) es necesario para que también devuelva contenedores parados, no solo los activos
         List<com.github.dockerjava.api.model.Container> contenedores = dockerClient
                 .listContainersCmd()
@@ -40,12 +49,12 @@ public class ServicioDocker {
                 .withIdFilter(java.util.Collections.singletonList(servidor.getIdContenedor()))
                 .exec();
 
-        // 3. Si Docker no encuentra el contenedor devolvemos DESCONOCIDO
+        // 3. Si Docker no encuentra el contenedor (lo borraron a mano o nunca existio) devolvemos DESCONOCIDO
         if (contenedores.isEmpty()) {
             return "DESCONOCIDO";
         }
 
-        // 4. Traducimos el estado de Docker a los estados que usa nuestra app
+        // 4. Traducimos el estado de Docker a los estados que usa nuestra app.
         // getState() devuelve: "running", "exited", "paused", "created"...
         String estadoDocker = contenedores.get(0).getState();
         String estadoApp;
@@ -56,7 +65,8 @@ public class ServicioDocker {
             default        -> estadoApp = "DESCONOCIDO";
         }
 
-        // 5. Sincronizamos el estado en SQLite por si estaba desactualizado
+        // 5. Sincronizamos el estado en SQLite por si estaba desactualizado.
+        // Asi cuando el frontend hace listarTodos() ve el estado real, no el viejo.
         servidor.setEstado(estadoApp);
         repositorio.save(servidor);
 
@@ -64,11 +74,11 @@ public class ServicioDocker {
     }
 
     public void ejecutarComandoEnContenedor(String idContenedor, String comando) {
-        // execCreateCmd crea el comando dentro del contenedor pero no lo ejecuta todavía
+        // execCreateCmd crea el comando dentro del contenedor pero no lo ejecuta todavía.
         // mc-send-to-console es un script que viene dentro de la imagen itzg/minecraft-server
-        // y sirve para mandar comandos directamente a la consola de Minecraft
+        // y sirve para mandar comandos directamente a la consola de Minecraft (como si los escribieras en la pantalla del server)
         try {
-            // Dividimos el comando por espacios para pasarlo como argumentos separados a mc-send-to-console
+            // Dividimos el comando por espacios para pasarlo como argumentos separados a mc-send-to-console.
             // Por ejemplo "say Hola" se convierte en {"mc-send-to-console", "say", "Hola"}
             String[] partes = comando.split(" ");
             String[] cmdCompleto = new String[partes.length + 1];
@@ -82,11 +92,11 @@ public class ServicioDocker {
             //para que el programa decida cuando se ejecuta
             com.github.dockerjava.api.command.ExecCreateCmdResponse exec = dockerClient
                     .execCreateCmd(idContenedor)
-                    .withUser("1000") // la imagen itzg/minecraft-server exige que los exec se ejecuten como user 1000
+                    .withUser("1000") // la imagen itzg/minecraft-server exige que los exec se ejecuten como user 1000 (no como root)
                     .withCmd(cmdCompleto)
                     .exec();
 
-            // execStartCmd ejecuta el comando que acabamos de crear
+            // execStartCmd ejecuta el comando que acabamos de crear y esperamos a que termine con awaitCompletion
             dockerClient.execStartCmd(exec.getId())
                     .exec(new com.github.dockerjava.core.command.ExecStartResultCallback())
                     .awaitCompletion();

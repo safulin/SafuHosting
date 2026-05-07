@@ -7,6 +7,13 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.net.ServerSocket;
 
+// Servicio dedicado a buscar puertos libres para asignar a los nuevos servidores.
+// Lo llama ServicioServidor.crearServidor() cuando va a crear un contenedor de Docker
+// y necesita saber en que puerto del PC va a escuchar Minecraft.
+
+// La logica es: empezamos en el 25565 (puerto por defecto de Minecraft), y vamos subiendo de uno en uno
+// hasta encontrar un puerto que no este usado ni en nuestra BD ni por ningun otro programa de Windows.
+
 @Service
 public class ServicioPuertos {
 
@@ -41,9 +48,10 @@ public class ServicioPuertos {
         }
     }
 
-    // Función "espía" que intenta abrir el puerto físicamente en Windows para ver si explota
-    // serversocket es una herramienta de java, se usa para crear programas que se queden escuchando, pero como lo que hace es tocar la puerta
+    // Función "espía" que intenta abrir el puerto físicamente en Windows para ver si explota.
+    // ServerSocket es una herramienta de java, se usa para crear programas que se queden escuchando, pero como lo que hace es tocar la puerta
     // del puerto, si lo intenta y windows lo deniega da fallo, asique nos sirve para que salte la excepcion.
+    // El try-with-resources cierra el socket automaticamente al salir del bloque, asi no dejamos el puerto bloqueado por nosotros mismos.
     private boolean puertoDisponibleEnSistema(int puerto) {
         try (ServerSocket serverSocket = new ServerSocket(puerto)) {
             return true; // Éxito: Lo hemos podido abrir, significa que está libre

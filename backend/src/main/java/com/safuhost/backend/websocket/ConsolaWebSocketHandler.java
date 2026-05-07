@@ -2,9 +2,9 @@ package com.safuhost.backend.websocket;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.async.ResultCallback;
-import com.github.dockerjava.api.model.Frame; // representa cada línea que genera el contenedor. Docker no envía texto plano, envía "frames" que contienen el texto más metadatos
+import com.github.dockerjava.api.model.Frame;
 import com.safuhost.backend.modelo.Servidor;
-import com.safuhost.backend.servicio.ServicioServidor;
+import com.safuhost.backend.repositorio.RepositorioServidor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -16,14 +16,28 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 
+// Handler que gestiona las conexiones WebSocket en la URL /ws/consola/{id}.
+// Cuando el frontend (Consola.vue) abre el WebSocket, llega aqui afterConnectionEstablished:
+//  1. Sacamos el id del servidor de la URL
+//  2. Pedimos a Docker el stream de logs de ese contenedor (sigue en tiempo real, como tail -f)
+//  3. Cada linea nueva que escupe Minecraft se la mandamos al frontend por el WebSocket
+//  4. Cuando el usuario cierra la consola, paramos el stream para liberar recursos en Docker
+
+// Lo registra ConfiguracionWebSocket que mapea /ws/consola/* a este handler.
+// Para ENVIAR comandos (no recibir logs) el frontend hace un POST normal a /api/servidores/{id}/consola/comando,
+// que va por el camino normal HTTP, no por el WebSocket.
+
 @Component
 public class ConsolaWebSocketHandler extends TextWebSocketHandler {
 
     @Autowired
     private DockerClient dockerClient;
 
+    // Usamos el repositorio directamente porque los WebSockets corren en hilos de Tomcat
+    // que no tienen SecurityContext (el JWT solo se procesa en hilos HTTP).
+    // ServicioServidor.obtenerPorId() llama a verificarPropiedad() que lee el SecurityContext y explota con NPE.
     @Autowired
-    private ServicioServidor servicio;
+    private RepositorioServidor repositorio;
 
     // es un hashmap que guarda de quien es cada consola para cuando un usuario cierre su consola saber cual es el stream de docker que hay que cerrar
     // ConcurrentHashMap en lugar de HashMap normal porque pueden conectarse varios usuarios a la vez,
@@ -37,7 +51,8 @@ public class ConsolaWebSocketHandler extends TextWebSocketHandler {
         //para que quede solo la id del servidor
         Long id = Long.parseLong(ruta.substring(ruta.lastIndexOf('/') + 1));
 
-        Servidor servidor = servicio.obtenerPorId(id);
+        Servidor servidor = repositorio.findById(id)
+                .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
 
         // Arrancamos el stream de logs de Docker
         Closeable stream = dockerClient.logContainerCmd(servidor.getIdContenedor())

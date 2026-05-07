@@ -8,9 +8,20 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Arrays;
 
+// Controlador que expone la API REST para gestionar servidores de Minecraft.
+// Toda peticion HTTP del frontend bajo /api/servidores/... aterriza aqui y desde aqui
+// llamamos a ServicioServidor que tiene la logica real.
+//
+// El controlador NO debe llevar logica de negocio, su trabajo es:
+//  - Recibir el JSON entrante y convertirlo a objetos Java (@RequestBody)
+//  - Llamar al servicio adecuado
+//  - Convertir el resultado a ResponseEntity con el codigo HTTP correcto (200 ok, 400 error, etc.)
+//
+// Las rutas de aqui las llama el frontend desde Servidores.vue, Servidor.vue, Mods.vue, Whitelist.vue, Consola.vue.
+
 @RestController // Indica que esta clase es una "puerta" para recibir peticiones web (API)
 @RequestMapping("/api/servidores") // Todas las URLs de este controlador empezarán por aquí
-@CrossOrigin(origins = "*") // esto hace que el front pueda leer al backend sino hay firewall
+@CrossOrigin(origins = "*") // esto hace que el front pueda leer al backend sino hay firewall (ademas de la config global de CORS)
 public class ControladorServidor {
 
     @Autowired
@@ -114,6 +125,22 @@ public class ControladorServidor {
     public ResponseEntity<?> buscarMods(@RequestParam String query) {
         try {
             return ResponseEntity.ok(servicio.buscarModsModrinth(query));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Verifica si un mod de Modrinth es compatible con un tipo de servidor y versión de Minecraft
+    // Ejemplo: GET /api/servidores/mods/verificar?modId=AANobbMI&tipo=FORGE&version=1.20.1
+    // Devuelve: { "compatible": true, "archivo": "sodium-1.20.1.jar" }
+    //       o:  { "compatible": false, "motivo": "No hay versión..." }
+    @GetMapping("/mods/verificar")
+    public ResponseEntity<?> verificarMod(
+            @RequestParam String modId,
+            @RequestParam String tipo,
+            @RequestParam String version) {
+        try {
+            return ResponseEntity.ok(servicio.verificarCompatibilidadMod(modId, tipo, version));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

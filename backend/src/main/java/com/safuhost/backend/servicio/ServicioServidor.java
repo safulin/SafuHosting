@@ -15,6 +15,18 @@ import com.github.dockerjava.api.model.Ports; // El gestor de "túneles" que map
 import java.util.ArrayList;
 import java.util.List;
 
+// Servicio principal del proyecto. Aqui esta toda la logica de negocio relacionada con los servidores:
+// crear, parar, iniciar, actualizar, eliminar, etc.
+//
+// Tambien hace de "coordinador" delegando algunos metodos a otros servicios mas especializados:
+//  - ServicioPuertos: encontrar un puerto libre
+//  - ServicioDocker: hablar con Docker para estado y comandos
+//  - ServicioMods: instalar/buscar mods en Modrinth
+//  - ServicioWhitelist: gestionar la lista blanca
+//  - ServicioUsuario: saber quien es el usuario logueado y verificar propiedad
+//
+// El que llama a ServicioServidor es ControladorServidor (el que recibe las peticiones HTTP).
+// El controlador solo traduce HTTP a llamadas a este servicio.
 
 @Service
 public class ServicioServidor {
@@ -125,7 +137,30 @@ public class ServicioServidor {
                 .exec();
 // CONEXIÓN FÍSICA: Vinculamos la carpeta de Windows (rutaLocal) con la carpeta interna del server (/data)
 //  sin esto, al borrar el contenedor de Docker se perdería el mundo, los inventarios y los progresos.
-        // 6. Ordenamos a Docker que encienda el servidor inmediatamente
+        // 6. Instalar mods ANTES de arrancar, para que el mundo se genere con ellos cargados
+        // Solo en FORGE y FABRIC (VANILLA no soporta mods)
+        if ("FORGE".equals(nuevo.getTipo()) || "FABRIC".equals(nuevo.getTipo())) {
+
+            // En FABRIC instalamos Fabric API automáticamente. Es la base que casi todos los mods de Fabric necesitan
+            if ("FABRIC".equals(nuevo.getTipo())) {
+                servicioMods.instalarFabricApi(nuevo.getNombre(), nuevo.getVersion());
+            }
+
+            // Mods que el usuario eligió en el formulario
+            if (nuevo.getModIniciales() != null) {
+                for (String modId : nuevo.getModIniciales()) {
+                    try {
+                        String jar = servicioMods.instalarModEnCarpeta(nuevo.getNombre(), nuevo.getTipo(), nuevo.getVersion(), modId);
+                        System.out.println("[Mods] Instalado: " + jar);
+                    } catch (Exception e) {
+                        System.err.println("[Mods] FALLO al instalar mod " + modId + ": " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        // 7. Ordenamos a Docker que encienda el servidor
         dockerClient.startContainerCmd(container.getId()).exec();
 
         // 7. Registramos el éxito en SQLite para no olvidar este servidor
@@ -242,6 +277,10 @@ public class ServicioServidor {
 
     public Object buscarModsModrinth(String query) {
         return servicioMods.buscarModsModrinth(query);
+    }
+
+    public java.util.Map<String, Object> verificarCompatibilidadMod(String modId, String tipo, String version) {
+        return servicioMods.verificarCompatibilidadMod(modId, tipo, version);
     }
 
     public String instalarModModrinth(Long id, String modrinthId) throws java.io.IOException {

@@ -1,42 +1,28 @@
 <script setup>
-// Componente que gestiona los mods de un servidor existente. Lo monta Servidor.vue.
-// Permite:
-//  - Ver los mods .jar que hay en la carpeta /mods del servidor
-//  - Buscar mods en Modrinth (la web/api de mods de Minecraft)
-//  - Verificar compatibilidad antes de instalar (tipo de loader + version MC + no es modpack)
-//  - Si el mod tiene dependencias requeridas, ofrecer instalarlas tambien
-//  - Eliminar mods instalados
-//
-// Para instalar mods al CREAR el servidor existe otro flujo similar dentro de Servidores.vue.
-// Aqui es para cuando el servidor ya existe y quieres añadir/quitar mods.
-
 import { ref, onMounted } from 'vue'
 import { api } from '../api.js'
 
 const props = defineProps({ id: { type: [String, Number], required: true } })
 
-const instalados = ref([])                              // array de strings con los nombres de los .jar instalados
-const busqueda = ref('')                                // texto que el usuario escribe para buscar
-const resultados = ref([])                              // resultados de Modrinth (objeto con title, description, project_id, icon_url...)
+const instalados = ref([])
+const busqueda = ref('')
+const resultados = ref([])
 const error = ref('')
 const mensaje = ref('')
-const verificando = ref(null)                           // project_id del mod que estamos verificando ahora mismo (para deshabilitar el boton)
-const dependenciasPendientes = ref({ modId: null, deps: [] })  // si un mod tiene deps no instaladas, las guardamos aqui para que el usuario decida
-const servidor = ref(null)                              // datos del servidor (necesarios para saber tipo y version al verificar)
+const verificando = ref(null)
+const dependenciasPendientes = ref({ modId: null, deps: [] })
+const servidor = ref(null)
 
 async function cargarInstalados() {
-  // GET /api/servidores/{id}/mods → array con los nombres de archivos .jar de la carpeta /mods
   const { data } = await api.get(`/api/servidores/${props.id}/mods`)
   instalados.value = data
 }
 
 async function cargarServidor() {
-  // Necesitamos el servidor para saber su tipo (FORGE/FABRIC) y version (1.21, 1.20.1...)
-  // y poder pasarselos al endpoint de verificacion
   try {
     const { data } = await api.get(`/api/servidores/${props.id}`)
     servidor.value = data
-  } catch (e) { /* ignoramos errores aqui, ya se mostraran si el usuario intenta instalar */ }
+  } catch (e) {}
 }
 
 async function buscar() {
@@ -44,19 +30,15 @@ async function buscar() {
   resultados.value = []
   if (!busqueda.value.trim()) return
   try {
-    // El backend hace de proxy a Modrinth para evitar CORS y centralizar la logica
     const { data } = await api.get('/api/servidores/mods/buscar', {
       params: { query: busqueda.value }
     })
-    // La API de Modrinth devuelve { hits: [...], total_hits, ... }
     resultados.value = data.hits || []
   } catch (e) {
     error.value = e.response?.data || 'Error al buscar'
   }
 }
 
-// Descarga el .jar y lo coloca en la carpeta /mods del servidor. Sin verificacion previa, lo hace directo.
-// Lo llaman las funciones de mas arriba cuando ya saben que el mod es compatible y las deps estan resueltas.
 async function instalarMod(modrinthId, titulo) {
   error.value = ''
   mensaje.value = `Instalando ${titulo}...`
@@ -70,16 +52,11 @@ async function instalarMod(modrinthId, titulo) {
   }
 }
 
-// Funcion principal del boton "Instalar". Antes de descargar el mod:
-//  1. Verificamos en Modrinth que es compatible con el tipo y version del servidor
-//  2. Si tiene dependencias requeridas no instaladas, las mostramos al usuario y esperamos confirmacion
-//  3. Si no hay dependencias o el usuario confirma, llamamos a instalarMod
 async function instalar(modrinthId, titulo) {
   error.value = ''
   verificando.value = modrinthId
   dependenciasPendientes.value = { modId: null, deps: [] }
   try {
-    // 1. Verificacion de compatibilidad. El backend devuelve { compatible, archivo, modpack, dependencias }
     const { data: verificacion } = await api.get('/api/servidores/mods/verificar', {
       params: { modId: modrinthId, tipo: servidor.value?.tipo, version: servidor.value?.version }
     })
@@ -87,16 +64,13 @@ async function instalar(modrinthId, titulo) {
       error.value = verificacion.motivo
       return
     }
-    // 2. Filtramos las dependencias que NO esten ya instaladas (comparando por nombre, simple pero suficiente)
     const depsNuevas = (verificacion.dependencias || []).filter(
       d => !instalados.value.some(nombre => nombre.toLowerCase().includes(d.titulo.toLowerCase()))
     )
     if (depsNuevas.length > 0) {
-      // Guardamos las deps pendientes y mostramos el aviso, el usuario decide en el template
       dependenciasPendientes.value = { modId: modrinthId, titulo, deps: depsNuevas }
       return
     }
-    // 3. Sin dependencias pendientes → instalamos directamente
     await instalarMod(modrinthId, titulo)
   } catch (e) {
     error.value = e.response?.data || 'Error al verificar'
@@ -105,7 +79,6 @@ async function instalar(modrinthId, titulo) {
   }
 }
 
-// El usuario ha confirmado "Instalar todo": instalamos primero las dependencias y luego el mod principal
 async function instalarConDependencias() {
   const { modId, titulo, deps } = dependenciasPendientes.value
   dependenciasPendientes.value = { modId: null, deps: [] }
@@ -125,7 +98,6 @@ async function eliminar(nombreMod) {
   }
 }
 
-// Al montarse el componente cargamos en paralelo los mods instalados y los datos del servidor
 onMounted(() => { cargarInstalados(); cargarServidor() })
 </script>
 
@@ -138,7 +110,6 @@ onMounted(() => { cargarInstalados(); cargarServidor() })
       <button type="submit">Buscar</button>
     </form>
 
-    <!-- Aviso de dependencias requeridas -->
     <div v-if="dependenciasPendientes.deps.length" style="background:#2a1f00; border:1px solid #f90; border-radius:6px; padding:10px; margin-top:10px">
       <strong style="color:#f90">⚠ Este mod requiere dependencias no instaladas:</strong>
       <span v-for="d in dependenciasPendientes.deps" :key="d.id"

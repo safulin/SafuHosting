@@ -1,14 +1,4 @@
 <script setup>
-// Pagina de detalle de un servidor. Aqui esta todo el panel de gestion de UN servidor concreto:
-//  - Datos basicos (nombre, version, puerto, estado)
-//  - Botones Iniciar / Parar / Refrescar estado / Eliminar
-//  - Formulario de configuracion (dificultad, modo, pvp, etc.) con boton Guardar
-//  - Consola en tiempo real (componente Consola.vue, via WebSocket)
-//  - Whitelist (componente Whitelist.vue)
-//  - Mods instalados y buscador de Modrinth (componente Mods.vue)
-
-// El id del servidor viene en la URL (/servidores/:id) y nos llega como prop gracias a "props: true" en router.js.
-
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api.js'
@@ -19,14 +9,13 @@ import Mods from '../components/Mods.vue'
 const props = defineProps({ id: { type: String, required: true } })
 const router = useRouter()
 
-const servidor = ref(null)        // datos completos del servidor que viene del backend
-const estadoReal = ref('')        // estado consultado a Docker (puede diferir del que tenemos en BD si el contenedor se cerro solo)
+const servidor = ref(null)
+const estadoReal = ref('')
 const error = ref('')
-const consolaRef = ref(null)      // referencia al componente Consola para poder llamar a su metodo reconectar()
+const consolaRef = ref(null)
 
 async function cargar() {
   try {
-    // GET /api/servidores/{id} → devuelve el servidor completo o 400 si no es del usuario logueado
     const { data } = await api.get(`/api/servidores/${props.id}`)
     servidor.value = data
   } catch (e) {
@@ -35,8 +24,6 @@ async function cargar() {
 }
 
 async function consultarEstado() {
-  // El estado en BD puede estar desactualizado si el contenedor se cerro solo (por crash, OOM, etc.).
-  // Este endpoint pregunta a Docker el estado real y de paso lo sincroniza en BD.
   try {
     const { data } = await api.get(`/api/servidores/${props.id}/estado`)
     estadoReal.value = data
@@ -49,8 +36,6 @@ async function consultarEstado() {
 async function iniciar() {
   await api.post(`/api/servidores/${props.id}/iniciar`)
   await consultarEstado()
-  // Damos un margen para que Docker arranque el contenedor y luego reconectamos
-  // la consola al nuevo stream de logs (el viejo terminó cuando el contenedor paró)
   setTimeout(() => consolaRef.value?.reconectar(), 1000)
 }
 
@@ -61,9 +46,6 @@ async function parar() {
 }
 
 async function guardar() {
-  // PUT /api/servidores/{id} con el objeto entero. El backend solo actualiza los campos editables
-  // (nombre, dificultad, modo, pvp, whitelist...). Puerto, idContenedor y version NO se tocan
-  // porque estan ligados al contenedor de Docker que ya existe.
   try {
     await api.put(`/api/servidores/${props.id}`, servidor.value)
     error.value = ''
@@ -73,7 +55,6 @@ async function guardar() {
 }
 
 async function eliminar() {
-  // confirm() del navegador, simple pero suficiente. Si el usuario cancela no hacemos nada.
   if (!confirm('¿Eliminar este servidor? Se borrará todo, incluido el contenedor de Docker.')) return
   await api.delete(`/api/servidores/${props.id}`)
   router.push('/servidores')

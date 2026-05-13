@@ -8,42 +8,25 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Arrays;
 
-// Controlador que expone la API REST para gestionar servidores de Minecraft.
-// Toda peticion HTTP del frontend bajo /api/servidores/... aterriza aqui y desde aqui
-// llamamos a ServicioServidor que tiene la logica real.
-//
-// El controlador NO debe llevar logica de negocio, su trabajo es:
-//  - Recibir el JSON entrante y convertirlo a objetos Java (@RequestBody)
-//  - Llamar al servicio adecuado
-//  - Convertir el resultado a ResponseEntity con el codigo HTTP correcto (200 ok, 400 error, etc.)
-//
-// Las rutas de aqui las llama el frontend desde Servidores.vue, Servidor.vue, Mods.vue, Whitelist.vue, Consola.vue.
-
-@RestController // Indica que esta clase es una "puerta" para recibir peticiones web (API)
-@RequestMapping("/api/servidores") // Todas las URLs de este controlador empezarán por aquí
-@CrossOrigin(origins = "*") // esto hace que el front pueda leer al backend sino hay firewall (ademas de la config global de CORS)
+@RestController
+@RequestMapping("/api/servidores")
+@CrossOrigin(origins = "*")
 public class ControladorServidor {
 
     @Autowired
-    private ServicioServidor servicio; // Llamamos a nuestro a la clase que tiene los metodos para crear el servidor
+    private ServicioServidor servicio;
 
-    // aqui creamos el endpoint, para crear un servidor hay que ir a /crear
     @PostMapping("/crear")
     public ResponseEntity<?> crearServidor(@RequestBody Servidor nuevo) {
         try {
-            // Intentamos ejecutar los metodos del servicioServidor
             Servidor creado = servicio.crearServidor(nuevo);
-
-            // Si sale bien, devolvemos el servidor con su ID de Docker y puerto (Status 200)
             return ResponseEntity.ok(creado);
         } catch (RuntimeException e) {
-            // Si el nombre está repetido, el servicio lanza una excepción
-            // y  devolve un error (Status 400) con el mensaje de "Nombre ya existe"
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    @GetMapping("/todos") //peticion get, no importamos nada, solo devolvemos el listado que es una array que devolveremos en json.
+    @GetMapping("/todos")
     public List<Servidor> listarTodos() {
         return servicio.listarTodos();
     }
@@ -89,8 +72,6 @@ public class ControladorServidor {
     }
 
     @PutMapping("/{id}")
-    // @PathVariable coge el id de la URL (/api/servidores/1 → id = 1)
-    // @RequestBody coge el JSON del cuerpo de la petición y lo convierte en un objeto Servidor
     public ResponseEntity<?> actualizarServidor(@PathVariable Long id, @RequestBody Servidor datos) {
         try {
             Servidor servidor = servicio.actualizarServidor(id, datos);
@@ -119,8 +100,6 @@ public class ControladorServidor {
         }
     }
 
-    // Busca mods en Modrinth (la API pública de mods de Minecraft)
-    // Ejemplo: GET /api/servidores/mods/buscar?query=jei
     @GetMapping("/mods/buscar")
     public ResponseEntity<?> buscarMods(@RequestParam String query) {
         try {
@@ -130,10 +109,6 @@ public class ControladorServidor {
         }
     }
 
-    // Verifica si un mod de Modrinth es compatible con un tipo de servidor y versión de Minecraft
-    // Ejemplo: GET /api/servidores/mods/verificar?modId=AANobbMI&tipo=FORGE&version=1.20.1
-    // Devuelve: { "compatible": true, "archivo": "sodium-1.20.1.jar" }
-    //       o:  { "compatible": false, "motivo": "No hay versión..." }
     @GetMapping("/mods/verificar")
     public ResponseEntity<?> verificarMod(
             @RequestParam String modId,
@@ -146,8 +121,6 @@ public class ControladorServidor {
         }
     }
 
-    // Instala un mod descargándolo desde Modrinth
-    // El modrinthId es el id que devuelve la búsqueda (campo project_id)
     @PostMapping("/{id}/mods/instalar/{modrinthId}")
     public ResponseEntity<?> instalarMod(@PathVariable Long id, @PathVariable String modrinthId) {
         try {
@@ -168,8 +141,6 @@ public class ControladorServidor {
         }
     }
 
-    // Recibe un comando como String plano en el body y lo ejecuta en la consola del servidor
-    // Ejemplo body: "say Hola a todos"  o  "op Safu"
     @PostMapping("/{id}/consola/comando")
     public ResponseEntity<?> enviarComando(@PathVariable Long id, @RequestBody String comando) {
         try {
@@ -207,7 +178,6 @@ public class ControladorServidor {
         }
     }
 
-    // La imagen itzg/minecraft-server soporta estas versiones de forma nativa
     @GetMapping("/versiones")
     public List<String> obtenerVersiones() {
         return Arrays.asList(

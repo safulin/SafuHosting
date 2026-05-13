@@ -133,6 +133,14 @@ async function eliminar(id) {
   }
 }
 
+function colorEstado(estado) {
+  if (!estado) return '#888'
+  const e = estado.toLowerCase()
+  if (e.includes('running') || e.includes('activo') || e.includes('online')) return '#5AAB37'
+  if (e.includes('stop') || e.includes('parado') || e.includes('offline')) return '#AA2222'
+  return '#c8851a'
+}
+
 onMounted(async () => {
   await cargarVersiones()
   await cargar()
@@ -140,106 +148,110 @@ onMounted(async () => {
 </script>
 
 <template>
-  <h1>Mis servidores</h1>
+  <h1 style="color:var(--mc-text-light); text-shadow:3px 3px 0 rgba(0,0,0,0.4); margin-bottom:20px;">
+    Mis servidores
+  </h1>
 
   <div class="tarjeta">
-    <h2>Crear servidor</h2>
+    <h2 style="margin-bottom:18px;">Crear servidor</h2>
     <form @submit.prevent="crear">
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
 
-        <label>
-          Nombre del servidor
-          <input v-model="nuevo.nombre" placeholder="MiMundo" required style="width:100%" />
-        </label>
+        <div>
+          <label>Nombre del servidor</label>
+          <input v-model="nuevo.nombre" placeholder="MiMundo" required />
+        </div>
 
-        <label>
-          Versión de Minecraft
-          <select v-model="nuevo.version" style="width:100%">
+        <div>
+          <label>Versión de Minecraft</label>
+          <select v-model="nuevo.version">
             <option v-for="v in versiones" :key="v" :value="v">{{ v }}</option>
           </select>
-        </label>
+        </div>
 
-        <label>
-          Tipo de servidor
-          <select v-model="nuevo.tipo" style="width:100%">
+        <div>
+          <label>Tipo de servidor</label>
+          <select v-model="nuevo.tipo">
             <option value="VANILLA">VANILLA (sin mods)</option>
             <option value="FORGE">FORGE (mods)</option>
             <option value="FABRIC">FABRIC (mods)</option>
           </select>
-        </label>
+        </div>
 
-        <label>
-          Dificultad
-          <select v-model="nuevo.dificultad" style="width:100%">
+        <div>
+          <label>Dificultad</label>
+          <select v-model="nuevo.dificultad">
             <option>peaceful</option>
             <option>easy</option>
             <option>normal</option>
             <option>hard</option>
           </select>
-        </label>
+        </div>
 
-        <label>
-          Modo de juego
-          <select v-model="nuevo.modoJuego" style="width:100%">
+        <div>
+          <label>Modo de juego</label>
+          <select v-model="nuevo.modoJuego">
             <option>survival</option>
             <option>creative</option>
             <option>adventure</option>
           </select>
-        </label>
+        </div>
 
-        <label>
-          Administradores (OPs)
-          <input v-model="nuevo.administradores" placeholder="Safu,Pepe (separados por comas)" style="width:100%" />
-        </label>
+        <div>
+          <label>Administradores (OPs)</label>
+          <input v-model="nuevo.administradores" placeholder="Safu,Pepe (separados por comas)" />
+        </div>
 
-        <label>
-          URL del icono (opcional)
-          <input v-model="nuevo.urlIcono" placeholder="https://..." style="width:100%" />
-        </label>
+        <div>
+          <label>URL del icono (opcional)</label>
+          <input v-model="nuevo.urlIcono" placeholder="https://..." />
+        </div>
 
-        <label>
-          Lista blanca (jugadores permitidos)
-          <input v-model="nuevo.listaBlanca" placeholder="Safu,Pepe" :disabled="!nuevo.usarWhitelist" style="width:100%" />
-        </label>
+        <div>
+          <label>Lista blanca (jugadores)</label>
+          <input v-model="nuevo.listaBlanca" placeholder="Safu,Pepe" :disabled="!nuevo.usarWhitelist" />
+        </div>
 
-        <label style="display:flex; gap:6px; align-items:center">
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="nuevo.pvp" /> PvP activado
         </label>
 
-        <label style="display:flex; gap:6px; align-items:center">
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="nuevo.modoOnline" /> Modo Premium (online)
         </label>
 
-        <label style="display:flex; gap:6px; align-items:center">
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="nuevo.usarWhitelist" /> Usar lista blanca
         </label>
 
       </div>
 
-      <div v-if="nuevo.tipo === 'FORGE' || nuevo.tipo === 'FABRIC'" style="grid-column: 1 / -1; margin-top:8px; border-top: 1px solid #444; padding-top:12px">
-        <h3 style="margin:0 0 8px">Mods iniciales (se instalan antes del primer arranque)</h3>
+      <div v-if="nuevo.tipo === 'FORGE' || nuevo.tipo === 'FABRIC'"
+           style="margin-top:18px; border-top:2px solid var(--mc-tan-dark); padding-top:16px;">
+        <h3 style="margin-bottom:12px;">Mods iniciales</h3>
 
-        <div style="display:flex; gap:6px; margin-bottom:8px">
-          <input v-model="busquedaMod" placeholder="Buscar mod en Modrinth (ej: sodium, create)" style="flex:1" @keyup.enter="buscarModsParaCrear" />
-          <button type="button" @click="buscarModsParaCrear" :disabled="buscandoMods">
+        <div style="display:flex; gap:8px; margin-bottom:10px;">
+          <input v-model="busquedaMod" placeholder="Buscar mod en Modrinth (ej: sodium, create)" style="flex:1; margin:0;" @keyup.enter="buscarModsParaCrear" />
+          <button type="button" @click="buscarModsParaCrear" :disabled="buscandoMods" style="margin:0; white-space:nowrap;">
             {{ buscandoMods ? 'Buscando...' : 'Buscar' }}
           </button>
         </div>
 
-        <div v-if="resultadosMods.length" style="max-height:200px; overflow-y:auto; border:1px solid #444; border-radius:4px; margin-bottom:8px">
+        <div v-if="resultadosMods.length"
+             style="max-height:220px; overflow-y:auto; border:2px solid var(--mc-border-dark); border-radius:4px; margin-bottom:10px; background:white;">
           <div v-for="r in resultadosMods" :key="r.project_id"
-               style="display:flex; align-items:center; gap:8px; padding:6px 8px; border-bottom:1px solid #333">
-            <img v-if="r.icon_url" :src="r.icon_url" style="width:32px; height:32px; border-radius:4px" />
-            <div style="flex:1; font-size:13px">
+               style="display:flex; align-items:center; gap:10px; padding:8px 10px; border-bottom:1px solid #eee;">
+            <img v-if="r.icon_url" :src="r.icon_url" style="width:36px; height:36px; border-radius:4px; flex-shrink:0;" />
+            <div style="flex:1; font-size:13px; color:var(--mc-text); min-width:0;">
               <strong>{{ r.title }}</strong>
-              <div style="color:#aaa; font-size:11px">{{ r.description }}</div>
-              <div v-if="erroresCompatibilidad[r.project_id]" style="color:#f66; font-size:11px; margin-top:2px">
+              <div style="color:#888; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.description }}</div>
+              <div v-if="erroresCompatibilidad[r.project_id]" style="color:var(--mc-red); font-size:11px; margin-top:2px;">
                 ✕ {{ erroresCompatibilidad[r.project_id] }}
               </div>
             </div>
             <button type="button" @click="añadirMod(r)"
                     :disabled="nuevo.modIniciales.some(m => m.id === r.project_id) || verificando === r.project_id"
-                    style="font-size:12px; padding:2px 8px; min-width:80px">
+                    style="font-size:12px; padding:4px 10px; min-width:90px; margin:0; flex-shrink:0;">
               <span v-if="verificando === r.project_id">Verificando...</span>
               <span v-else-if="nuevo.modIniciales.some(m => m.id === r.project_id)">✓ Añadido</span>
               <span v-else>+ Añadir</span>
@@ -247,53 +259,86 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-if="dependenciasPendientes.length" style="background:#2a1f00; border:1px solid #f90; border-radius:6px; padding:10px; margin-bottom:8px">
-          <strong style="color:#f90">⚠ Este mod requiere dependencias no añadidas:</strong>
-          <span v-for="d in dependenciasPendientes" :key="d.id" style="display:inline-block; background:#333; border-radius:10px; padding:2px 8px; margin:4px 4px 0; font-size:12px">{{ d.titulo }}</span>
-          <div style="margin-top:8px; display:flex; gap:8px">
-            <button type="button" @click="añadirDependencias" style="font-size:12px; padding:3px 10px">Añadir todas</button>
-            <button type="button" @click="dependenciasPendientes = []" style="font-size:12px; padding:3px 10px; background:transparent; border-color:#666; color:#aaa">Ignorar</button>
+        <div v-if="dependenciasPendientes.length"
+             style="background:#fff8e8; border:2px solid #c8851a; border-radius:4px; padding:12px; margin-bottom:10px;">
+          <strong style="color:#c8851a;">⚠ Este mod requiere dependencias:</strong>
+          <div style="margin:8px 0; display:flex; flex-wrap:wrap; gap:6px;">
+            <span v-for="d in dependenciasPendientes" :key="d.id"
+                  style="background:#f0e0b0; border-radius:12px; padding:3px 10px; font-size:12px; color:var(--mc-text);">
+              {{ d.titulo }}
+            </span>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:4px;">
+            <button type="button" @click="añadirDependencias" style="font-size:12px; padding:4px 12px; margin:0;">Añadir todas</button>
+            <button type="button" @click="dependenciasPendientes = []"
+                    style="font-size:12px; padding:4px 12px; margin:0; background:transparent; border:2px solid var(--mc-border-dark); color:var(--mc-text); border-bottom-width:2px;">
+              Ignorar
+            </button>
           </div>
         </div>
 
-        <div v-if="nuevo.modIniciales.length">
-          <p style="margin:0 0 4px; font-size:13px; color:#aaa">Mods que se instalarán ({{ nuevo.modIniciales.length }}):</p>
+        <div v-if="nuevo.modIniciales.length" style="display:flex; flex-wrap:wrap; gap:6px;">
           <div v-for="m in nuevo.modIniciales" :key="m.id"
-               style="display:inline-flex; align-items:center; gap:4px; background:#333; border-radius:12px; padding:2px 10px; margin:2px; font-size:12px">
+               style="display:inline-flex; align-items:center; gap:6px; background:var(--mc-tan-dark); border-radius:12px; padding:4px 12px; font-size:12px; color:var(--mc-text);">
             {{ m.titulo }}
-            <span @click="quitarMod(m.id)" style="cursor:pointer; color:#f66; margin-left:4px">✕</span>
+            <span @click="quitarMod(m.id)"
+                  style="cursor:pointer; color:var(--mc-red); font-weight:bold; line-height:1;">✕</span>
           </div>
         </div>
-        <p v-else style="color:#666; font-size:12px; margin:0">Ningún mod seleccionado. Puedes añadirlos después también.</p>
+        <p v-else style="color:var(--mc-text-muted); font-size:12px; margin:0;">
+          Ningún mod seleccionado. Puedes añadirlos después también.
+        </p>
       </div>
 
-      <button type="submit" :disabled="cargando" style="width:100%; margin-top:12px; padding:10px">
+      <button type="submit" :disabled="cargando"
+              style="width:100%; margin-top:16px; padding:12px; font-size:14px;">
         {{ cargando ? 'Creando servidor...' : 'Crear servidor' }}
       </button>
     </form>
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="error" class="error" style="margin-top:10px;">{{ error }}</p>
   </div>
 
   <div class="tarjeta">
-    <h2>Servidores ({{ servidores.length }})</h2>
-    <table v-if="servidores.length">
-      <thead>
-        <tr><th>Nombre</th><th>Versión</th><th>Tipo</th><th>Puerto</th><th>Estado</th><th>Acciones</th></tr>
-      </thead>
-      <tbody>
-        <tr v-for="s in servidores" :key="s.id">
-          <td>{{ s.nombre }}</td>
-          <td>{{ s.version }}</td>
-          <td>{{ s.tipo }}</td>
-          <td>{{ s.puerto }}</td>
-          <td>{{ s.estado }}</td>
-          <td>
-            <router-link :to="`/servidores/${s.id}`"><button>Gestionar</button></router-link>
-            <button class="peligro" @click="eliminar(s.id)">Eliminar</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <p v-else>No tienes servidores. Crea uno con el formulario de arriba.</p>
+    <h2 style="margin-bottom:18px;">Servidores ({{ servidores.length }})</h2>
+
+    <div v-if="servidores.length"
+         style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:14px;">
+      <div v-for="s in servidores" :key="s.id"
+           style="background:var(--mc-tan-light); border:2px solid var(--mc-border-dark); border-top-color:white; border-left-color:white; border-radius:4px; padding:16px; box-shadow:3px 3px 0 rgba(0,0,0,0.15);">
+
+        <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:12px;">
+          <img v-if="s.urlIcono" :src="s.urlIcono"
+               style="width:48px; height:48px; border-radius:4px; border:2px solid var(--mc-border-dark); flex-shrink:0;" />
+          <div v-else
+               style="width:48px; height:48px; border-radius:4px; border:2px solid var(--mc-border-dark); flex-shrink:0; background:var(--mc-tan-dark); display:flex; align-items:center; justify-content:center; font-size:22px;">
+            🌍
+          </div>
+          <div style="min-width:0; flex:1;">
+            <div style="font-family:'Press Start 2P', monospace; font-size:11px; color:var(--mc-text); margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              {{ s.nombre }}
+            </div>
+            <div style="font-size:12px; color:var(--mc-text-muted);">{{ s.version }} · {{ s.tipo }}</div>
+            <div style="font-size:12px; color:var(--mc-text-muted);">Puerto: {{ s.puerto }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
+          <span style="display:inline-block; width:10px; height:10px; border-radius:50%; flex-shrink:0;"
+                :style="{ background: colorEstado(s.estado) }"></span>
+          <span style="font-size:12px; font-weight:600; color:var(--mc-text);">{{ s.estado || 'Desconocido' }}</span>
+        </div>
+
+        <div style="display:flex; gap:6px;">
+          <router-link :to="`/servidores/${s.id}`" style="flex:1;">
+            <button style="width:100%; margin:0; font-size:12px; padding:7px;">Gestionar</button>
+          </router-link>
+          <button class="peligro" @click="eliminar(s.id)" style="margin:0; font-size:12px; padding:7px;">Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <p v-else style="color:var(--mc-text-muted); text-align:center; padding:30px 0; font-size:14px;">
+      No tienes servidores aún. ¡Crea uno con el formulario de arriba!
+    </p>
   </div>
 </template>

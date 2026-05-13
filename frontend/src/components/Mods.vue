@@ -22,7 +22,7 @@ async function cargarServidor() {
   try {
     const { data } = await api.get(`/api/servidores/${props.id}`)
     servidor.value = data
-  } catch (e) {}
+  } catch (e) { }
 }
 
 async function buscar() {
@@ -103,52 +103,70 @@ onMounted(() => { cargarInstalados(); cargarServidor() })
 
 <template>
   <div class="tarjeta">
-    <h2>Mods (Modrinth)</h2>
+    <h2 style="margin-bottom:16px;">Mods (Modrinth)</h2>
 
-    <form @submit.prevent="buscar" style="display:flex; gap:6px">
-      <input v-model="busqueda" placeholder="Buscar mod (ej: jei, sodium, create)" style="flex:1" />
-      <button type="submit">Buscar</button>
+    <form @submit.prevent="buscar" style="display:flex; gap:8px; margin-bottom:14px;">
+      <input v-model="busqueda" placeholder="Buscar mod (ej: jei, sodium, create)" style="flex:1; margin:0;" />
+      <button type="submit" style="margin:0; white-space:nowrap;">Buscar</button>
     </form>
 
-    <div v-if="dependenciasPendientes.deps.length" style="background:#2a1f00; border:1px solid #f90; border-radius:6px; padding:10px; margin-top:10px">
-      <strong style="color:#f90">⚠ Este mod requiere dependencias no instaladas:</strong>
-      <span v-for="d in dependenciasPendientes.deps" :key="d.id"
-            style="display:inline-block; background:#333; border-radius:10px; padding:2px 8px; margin:4px 4px 0; font-size:12px">{{ d.titulo }}</span>
-      <div style="margin-top:8px; display:flex; gap:8px">
-        <button @click="instalarConDependencias" style="font-size:12px; padding:3px 10px">Instalar todo</button>
+    <div v-if="dependenciasPendientes.deps.length"
+         style="background:#fff8e8; border:2px solid #c8851a; border-radius:4px; padding:14px; margin-bottom:14px;">
+      <strong style="color:#c8851a; font-size:13px;">⚠ Este mod requiere dependencias no instaladas:</strong>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin:10px 0;">
+        <span v-for="d in dependenciasPendientes.deps" :key="d.id"
+              style="background:#f0e0b0; border-radius:12px; padding:3px 10px; font-size:12px; color:var(--mc-text);">
+          {{ d.titulo }}
+        </span>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button @click="instalarConDependencias" style="font-size:12px; padding:5px 12px; margin:0;">Instalar todo</button>
         <button @click="instalarMod(dependenciasPendientes.modId, dependenciasPendientes.titulo); dependenciasPendientes = { modId: null, deps: [] }"
-                style="font-size:12px; padding:3px 10px; background:transparent; border-color:#666; color:#aaa">
+                style="font-size:12px; padding:5px 12px; margin:0; background:var(--mc-tan-dark); border-bottom-color:var(--mc-border-dark); color:var(--mc-text);">
           Solo el mod
         </button>
       </div>
     </div>
 
-    <div v-if="resultados.length" style="margin-top:10px">
-      <h3>Resultados</h3>
-      <div v-for="r in resultados" :key="r.project_id" style="display:flex; gap:10px; padding:8px; border-bottom:1px solid #444; align-items:center">
-        <img v-if="r.icon_url" :src="r.icon_url" style="width:48px; height:48px; border-radius:4px" />
-        <div style="flex:1">
-          <strong>{{ r.title }}</strong>
-          <div style="font-size:12px; color:#aaa">{{ r.description }}</div>
+    <div v-if="resultados.length" style="margin-bottom:20px;">
+      <h3 style="margin-bottom:10px;">Resultados de búsqueda</h3>
+      <div style="border:2px solid var(--mc-border-dark); border-radius:4px; overflow:hidden; background:white;">
+        <div v-for="r in resultados" :key="r.project_id"
+             style="display:flex; gap:12px; padding:12px 14px; border-bottom:1px solid #eee; align-items:center;">
+          <img v-if="r.icon_url" :src="r.icon_url"
+               style="width:48px; height:48px; border-radius:4px; border:1px solid #ddd; flex-shrink:0;" />
+          <div v-else
+               style="width:48px; height:48px; border-radius:4px; background:#f0f0f0; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:20px;">🧩</div>
+          <div style="flex:1; min-width:0;">
+            <strong style="font-size:14px; color:var(--mc-text);">{{ r.title }}</strong>
+            <div style="font-size:12px; color:#888; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:2px;">{{ r.description }}</div>
+          </div>
+          <button @click="instalar(r.project_id, r.title)"
+                  :disabled="verificando === r.project_id"
+                  style="min-width:100px; margin:0; font-size:12px; flex-shrink:0;">
+            {{ verificando === r.project_id ? 'Verificando...' : 'Instalar' }}
+          </button>
         </div>
-        <button @click="instalar(r.project_id, r.title)"
-                :disabled="verificando === r.project_id"
-                style="min-width:90px">
-          {{ verificando === r.project_id ? 'Verificando...' : 'Instalar' }}
-        </button>
       </div>
     </div>
 
-    <h3 style="margin-top:20px">Instalados ({{ instalados.length }})</h3>
-    <ul style="list-style:none">
-      <li v-for="m in instalados" :key="m" style="padding:4px 0; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #444">
-        <span>{{ m }}</span>
-        <button class="peligro" @click="eliminar(m)">Eliminar</button>
-      </li>
-    </ul>
-    <p v-if="!instalados.length" style="color:#888">Ningún mod instalado</p>
+    <h3 style="margin-bottom:12px;">Instalados ({{ instalados.length }})</h3>
+    <div v-if="instalados.length"
+         style="border:2px solid var(--mc-border-dark); border-radius:4px; overflow:hidden; background:var(--mc-tan-light);">
+      <div v-for="m in instalados" :key="m"
+           style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid var(--mc-tan-dark);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🧩</span>
+          <span style="font-size:13px; font-weight:600; color:var(--mc-text);">{{ m }}</span>
+        </div>
+        <button class="peligro" @click="eliminar(m)" style="font-size:12px; padding:5px 10px; margin:0;">Eliminar</button>
+      </div>
+    </div>
+    <p v-else style="color:var(--mc-text-muted); text-align:center; padding:20px; font-size:13px;">
+      Ningún mod instalado
+    </p>
 
-    <p v-if="mensaje" class="ok">{{ mensaje }}</p>
-    <p v-if="error" class="error">{{ error }}</p>
+    <p v-if="mensaje" class="ok" style="margin-top:12px;">{{ mensaje }}</p>
+    <p v-if="error" class="error" style="margin-top:12px;">{{ error }}</p>
   </div>
 </template>

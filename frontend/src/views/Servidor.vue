@@ -60,43 +60,94 @@ async function eliminar() {
   router.push('/servidores')
 }
 
+function colorEstado(estado) {
+  if (!estado) return '#888'
+  const e = estado.toLowerCase()
+  if (e.includes('running') || e.includes('activo') || e.includes('online')) return '#5AAB37'
+  if (e.includes('stop') || e.includes('parado') || e.includes('offline')) return '#AA2222'
+  return '#c8851a'
+}
+
 onMounted(cargar)
 </script>
 
 <template>
   <div v-if="servidor">
-    <h1>{{ servidor.nombre }}</h1>
-    <p style="color:#aaa">Versión {{ servidor.version }} · {{ servidor.tipo }} · Puerto {{ servidor.puerto }}</p>
-
-    <div class="tarjeta">
-      <h2>Control</h2>
-      <p>Estado actual: <strong>{{ servidor.estado }}</strong></p>
-      <button @click="iniciar">Iniciar</button>
-      <button class="peligro" @click="parar">Parar</button>
-      <button @click="consultarEstado">Refrescar estado</button>
-      <button class="peligro" @click="eliminar" style="float:right">Eliminar servidor</button>
+    <div style="display:flex; align-items:center; gap:16px; margin-bottom:6px;">
+      <img v-if="servidor.urlIcono" :src="servidor.urlIcono"
+           style="width:56px; height:56px; border-radius:4px; border:3px solid var(--mc-border-dark); box-shadow:3px 3px 0 rgba(0,0,0,0.3);" />
+      <div v-else
+           style="width:56px; height:56px; border-radius:4px; border:3px solid var(--mc-border-dark); background:var(--mc-tan-dark); display:flex; align-items:center; justify-content:center; font-size:28px; box-shadow:3px 3px 0 rgba(0,0,0,0.3);">
+        🌍
+      </div>
+      <div>
+        <h1 style="color:var(--mc-text-light); text-shadow:3px 3px 0 rgba(0,0,0,0.4); font-size:16px;">
+          {{ servidor.nombre }}
+        </h1>
+        <p style="color:var(--mc-tan-dark); font-size:13px; margin-top:4px;">
+          {{ servidor.version }} · {{ servidor.tipo }} · Puerto {{ servidor.puerto }}
+        </p>
+      </div>
     </div>
 
     <div class="tarjeta">
-      <h2>Configuración</h2>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px">
-        <label>Nombre <input v-model="servidor.nombre" /></label>
-        <label>Dificultad
+      <h2 style="margin-bottom:16px;">Control del servidor</h2>
+
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; padding:12px; background:var(--mc-tan-light); border-radius:4px; border:2px solid var(--mc-border-dark);">
+        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; flex-shrink:0;"
+              :style="{ background: colorEstado(servidor.estado) }"></span>
+        <span style="font-weight:700; font-size:14px; color:var(--mc-text);">{{ servidor.estado || 'Desconocido' }}</span>
+      </div>
+
+      <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+        <button @click="iniciar" style="font-size:13px;">▶ Iniciar</button>
+        <button class="peligro" @click="parar" style="font-size:13px;">⏹ Parar</button>
+        <button @click="consultarEstado"
+                style="font-size:13px; background:var(--mc-tan-dark); border-bottom-color:var(--mc-border-dark); color:var(--mc-text);">
+          ↻ Refrescar estado
+        </button>
+        <button class="peligro" @click="eliminar"
+                style="font-size:13px; margin-left:auto;">
+          🗑 Eliminar servidor
+        </button>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2 style="margin-bottom:16px;">Configuración</h2>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div>
+          <label>Nombre</label>
+          <input v-model="servidor.nombre" />
+        </div>
+        <div>
+          <label>Dificultad</label>
           <select v-model="servidor.dificultad">
             <option>peaceful</option><option>easy</option><option>normal</option><option>hard</option>
           </select>
-        </label>
-        <label>Modo de juego
+        </div>
+        <div>
+          <label>Modo de juego</label>
           <select v-model="servidor.modoJuego">
             <option>survival</option><option>creative</option><option>adventure</option>
           </select>
+        </div>
+        <div>
+          <label>OPs (Administradores)</label>
+          <input v-model="servidor.administradores" />
+        </div>
+
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+          <input type="checkbox" v-model="servidor.pvp" /> PvP activado
         </label>
-        <label>OPs <input v-model="servidor.administradores" /></label>
-        <label><input type="checkbox" v-model="servidor.pvp" /> PvP</label>
-        <label><input type="checkbox" v-model="servidor.modoOnline" /> Modo Premium</label>
-        <label><input type="checkbox" v-model="servidor.usarWhitelist" /> Whitelist activada</label>
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+          <input type="checkbox" v-model="servidor.modoOnline" /> Modo Premium
+        </label>
+        <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+          <input type="checkbox" v-model="servidor.usarWhitelist" /> Whitelist activada
+        </label>
       </div>
-      <button @click="guardar" style="margin-top:10px">Guardar cambios</button>
+      <button @click="guardar" style="margin-top:16px; font-size:13px;">Guardar cambios</button>
     </div>
 
     <Consola :id="id" ref="consolaRef" />
@@ -105,5 +156,11 @@ onMounted(cargar)
 
     <p v-if="error" class="error">{{ error }}</p>
   </div>
-  <p v-else>Cargando...</p>
+
+  <div v-else style="display:flex; justify-content:center; align-items:center; min-height:40vh;">
+    <div class="tarjeta" style="text-align:center; padding:40px 60px;">
+      <div style="font-size:32px; margin-bottom:12px;">⏳</div>
+      <p style="color:var(--mc-text-muted); font-size:14px;">Cargando servidor...</p>
+    </div>
+  </div>
 </template>

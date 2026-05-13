@@ -24,16 +24,28 @@ async function login() {
 </script>
 
 <template>
-  <div class="tarjeta" style="max-width: 400px; margin: 60px auto;">
-    <h1>Iniciar sesión</h1>
-    <form @submit.prevent="login">
-      <input v-model="username" placeholder="Usuario" required style="width:100%" />
-      <input v-model="password" type="password" placeholder="Contraseña" required style="width:100%" />
-      <button type="submit" style="width:100%; margin-top:10px">Entrar</button>
-    </form>
-    <p v-if="error" class="error">{{ error }}</p>
-    <p style="margin-top: 10px">
-      ¿No tienes cuenta? <router-link to="/registro">Regístrate</router-link>
-    </p>
+  <div style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding:20px;">
+    <div class="tarjeta" style="width:100%; max-width:420px;">
+      <h1 style="text-align:center; margin-bottom:8px; font-size:15px;">SafuHost</h1>
+      <p style="text-align:center; color:var(--mc-text-muted); font-size:12px; margin-bottom:24px;">Gestión de servidores Minecraft</p>
+
+      <form @submit.prevent="login">
+        <label>Usuario</label>
+        <input v-model="username" placeholder="Tu nombre de usuario" required />
+
+        <label style="margin-top:12px;">Contraseña</label>
+        <input v-model="password" type="password" placeholder="Tu contraseña" required />
+
+        <button type="submit" style="width:100%; margin-top:20px; padding:12px; font-size:14px;">
+          Iniciar sesión
+        </button>
+      </form>
+
+      <p v-if="error" class="error" style="margin-top:12px;">{{ error }}</p>
+
+      <p style="margin-top:16px; text-align:center; font-size:13px; color:var(--mc-text-muted);">
+        ¿No tienes cuenta? <router-link to="/registro">Regístrate</router-link>
+      </p>
+    </div>
   </div>
 </template>

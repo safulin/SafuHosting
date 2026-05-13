@@ -71,15 +71,24 @@ async function enviar() {
 
 <template>
   <div class="tarjeta">
-    <h2>Consola en tiempo real
-      <span v-if="reconectando" style="font-size:12px; color:#f90; font-weight:normal">— reconectando...</span>
-    </h2>
-    <div ref="cajaLogs" style="background:#000; color:#0f0; padding:10px; height:400px; overflow-y:auto; font-family:monospace; font-size:12px; border-radius:4px">
-      <div v-for="(l, i) in lineas" :key="i">{{ l }}</div>
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+      <h2>Consola en tiempo real</h2>
+      <span v-if="reconectando"
+            style="font-size:11px; color:#c8851a; font-weight:700; background:#fff8e8; padding:4px 10px; border-radius:12px; border:1px solid #c8851a;">
+        ↻ Reconectando...
+      </span>
     </div>
-    <form @submit.prevent="enviar" style="display:flex; gap:6px; margin-top:8px">
-      <input v-model="comando" placeholder="Escribe un comando (ej: say Hola, list, time set day)" style="flex:1" />
-      <button type="submit">Enviar</button>
+
+    <div ref="cajaLogs"
+         style="background:#0D0D0D; color:#39FF14; padding:14px; height:420px; overflow-y:auto; font-family:'Courier New', monospace; font-size:12px; border-radius:4px; border:2px solid #222; line-height:1.5;">
+      <div v-if="!lineas.length" style="color:#444; font-style:italic;">Esperando conexión con el servidor...</div>
+      <div v-for="(l, i) in lineas" :key="i" style="word-break:break-all;">{{ l }}</div>
+    </div>
+
+    <form @submit.prevent="enviar" style="display:flex; gap:8px; margin-top:10px;">
+      <input v-model="comando" placeholder="Escribe un comando (ej: say Hola, list, time set day)"
+             style="flex:1; background:#1a1a1a; color:#39FF14; border-color:#333; font-family:'Courier New', monospace; margin:0;" />
+      <button type="submit" style="margin:0; white-space:nowrap;">Enviar</button>
     </form>
   </div>
 </template>

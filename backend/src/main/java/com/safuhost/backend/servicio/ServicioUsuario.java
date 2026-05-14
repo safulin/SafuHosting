@@ -55,7 +55,8 @@ public class ServicioUsuario {
 
     public void verificarPropiedad(Servidor servidor) {
         Usuario actual = getUsuarioActual();
-        if (servidor.getPropietario() == null || !servidor.getPropietario().getId().equals(actual.getId())) {
+        if (servidor.getPropietario() == null
+                || !servidor.getPropietario().getId().equals(actual.getId())) {
             throw new RuntimeException("No tienes permiso para acceder a este servidor");
         }
     }

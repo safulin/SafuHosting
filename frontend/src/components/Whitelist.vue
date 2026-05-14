@@ -39,12 +39,10 @@ onMounted(cargar)
 <template>
   <div class="tarjeta">
     <h2 style="margin-bottom:16px;">Whitelist</h2>
-
     <form @submit.prevent="añadir" style="display:flex; gap:8px; margin-bottom:14px;">
       <input v-model="nuevo" placeholder="Nombre del jugador" style="flex:1; margin:0;" />
       <button type="submit" style="margin:0; white-space:nowrap;">+ Añadir</button>
     </form>
-
     <div v-if="lista.length"
          style="border:2px solid var(--mc-border-dark); border-radius:4px; overflow:hidden; background:var(--mc-tan-light);">
       <div v-for="j in lista" :key="j"
@@ -59,11 +57,9 @@ onMounted(cargar)
         <button class="peligro" @click="quitar(j)" style="font-size:12px; padding:5px 10px; margin:0;">Quitar</button>
       </div>
     </div>
-
     <p v-if="!lista.length" style="color:var(--mc-text-muted); text-align:center; padding:20px; font-size:13px;">
       La whitelist está vacía
     </p>
-
     <p v-if="error" class="error" style="margin-top:10px;">{{ error }}</p>
   </div>
 </template>

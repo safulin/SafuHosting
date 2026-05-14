@@ -1,15 +1,24 @@
 package com.safuhost.backend.servicio;
 
+import com.safuhost.backend.modelo.Servidor;
+import com.safuhost.backend.repositorio.RepositorioServidor;
 import jakarta.annotation.PostConstruct;
 import org.bitlet.weupnp.GatewayDevice;
 import org.bitlet.weupnp.GatewayDiscover;
-import org.bitlet.weupnp.PortMappingEntry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ServicioUpnp {
 
-    private GatewayDevice gateway;
+    @Autowired
+    private RepositorioServidor repositorio;
+
+    private final CompletableFuture<GatewayDevice> gatewayFuture = new CompletableFuture<>();
 
     @PostConstruct
     public void inicializar() {
@@ -17,31 +26,53 @@ public class ServicioUpnp {
             try {
                 GatewayDiscover discover = new GatewayDiscover();
                 discover.discover();
-                gateway = discover.getValidGateway();
-                if (gateway != null) {
-                    System.out.println("[UPnP] Gateway: " + gateway.getFriendlyName() + " | IP externa: " + gateway.getExternalIPAddress());
+                GatewayDevice gw = discover.getValidGateway();
+                if (gw != null) {
+                    System.out.println("[UPnP] Gateway: " + gw.getFriendlyName() + " | IP externa: " + gw.getExternalIPAddress());
+                    gatewayFuture.complete(gw);
+                    restaurarPuertos(gw);
                 } else {
                     System.err.println("[UPnP] No se encontró ningún gateway UPnP. Los servidores no serán accesibles desde internet automáticamente.");
+                    gatewayFuture.complete(null);
                 }
             } catch (Exception e) {
                 System.err.println("[UPnP] Error al inicializar: " + e.getMessage());
+                gatewayFuture.complete(null);
             }
         }, "upnp-discovery").start();
     }
 
-    public void abrirPuerto(int puerto) {
-        if (gateway == null) return;
+    private GatewayDevice obtenerGateway() {
         try {
-            PortMappingEntry existente = new PortMappingEntry();
-            boolean yaMapeado = gateway.getSpecificPortMappingEntry(puerto, "TCP", existente);
-            if (!yaMapeado) {
-                String ipLocal = gateway.getLocalAddress().getHostAddress();
-                boolean exito = gateway.addPortMapping(puerto, puerto, ipLocal, "TCP", "Safuhost-" + puerto);
-                if (exito) {
-                    System.out.println("[UPnP] Puerto TCP " + puerto + " abierto correctamente");
-                } else {
-                    System.err.println("[UPnP] El router rechazó la apertura del puerto " + puerto);
-                }
+            return gatewayFuture.get(30, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void restaurarPuertos(GatewayDevice gw) {
+        List<Servidor> activos = repositorio.findByEstadoIn(List.of("INICIANDO", "EN_LINEA"));
+        if (activos.isEmpty()) return;
+        System.out.println("[UPnP] Restaurando puertos de " + activos.size() + " servidor(es) activo(s)...");
+        for (Servidor s : activos) {
+            abrirPuertoConGateway(gw, s.getPuerto());
+        }
+    }
+
+    public void abrirPuerto(int puerto) {
+        GatewayDevice gw = obtenerGateway();
+        if (gw == null) return;
+        abrirPuertoConGateway(gw, puerto);
+    }
+
+    private void abrirPuertoConGateway(GatewayDevice gw, int puerto) {
+        try {
+            String ipLocal = gw.getLocalAddress().getHostAddress();
+            boolean exito = gw.addPortMapping(puerto, puerto, ipLocal, "TCP", "Safuhost-" + puerto);
+            if (exito) {
+                System.out.println("[UPnP] Puerto TCP " + puerto + " abierto correctamente");
+            } else {
+                System.err.println("[UPnP] El router rechazó la apertura del puerto " + puerto);
             }
         } catch (Exception e) {
             System.err.println("[UPnP] Error al abrir puerto " + puerto + ": " + e.getMessage());
@@ -49,9 +80,10 @@ public class ServicioUpnp {
     }
 
     public void cerrarPuerto(int puerto) {
-        if (gateway == null) return;
+        GatewayDevice gw = obtenerGateway();
+        if (gw == null) return;
         try {
-            gateway.deletePortMapping(puerto, "TCP");
+            gw.deletePortMapping(puerto, "TCP");
             System.out.println("[UPnP] Puerto TCP " + puerto + " cerrado");
         } catch (Exception e) {
             System.err.println("[UPnP] Error al cerrar puerto " + puerto + ": " + e.getMessage());

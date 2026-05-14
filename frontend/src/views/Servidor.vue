@@ -60,14 +60,6 @@ async function eliminar() {
   router.push('/servidores')
 }
 
-function colorEstado(estado) {
-  if (!estado) return '#888'
-  const e = estado.toLowerCase()
-  if (e.includes('running') || e.includes('activo') || e.includes('online')) return '#5AAB37'
-  if (e.includes('stop') || e.includes('parado') || e.includes('offline')) return '#AA2222'
-  return '#c8851a'
-}
-
 onMounted(cargar)
 </script>
 
@@ -81,9 +73,7 @@ onMounted(cargar)
         🌍
       </div>
       <div>
-        <h1 style="color:var(--mc-text-light); text-shadow:3px 3px 0 rgba(0,0,0,0.4); font-size:16px;">
-          {{ servidor.nombre }}
-        </h1>
+        <h1 style="color:var(--mc-text-light); text-shadow:3px 3px 0 rgba(0,0,0,0.4); font-size:16px;">{{ servidor.nombre }}</h1>
         <p style="color:var(--mc-tan-dark); font-size:13px; margin-top:4px;">
           {{ servidor.version }} · {{ servidor.tipo }} · Puerto {{ servidor.puerto }}
         </p>
@@ -92,13 +82,12 @@ onMounted(cargar)
 
     <div class="tarjeta">
       <h2 style="margin-bottom:16px;">Control del servidor</h2>
-
       <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px; padding:12px; background:var(--mc-tan-light); border-radius:4px; border:2px solid var(--mc-border-dark);">
-        <span style="display:inline-block; width:14px; height:14px; border-radius:50%; flex-shrink:0;"
-              :style="{ background: colorEstado(servidor.estado) }"></span>
+        <span style="display:inline-block; width:14px; height:14px; border-radius:50%;"
+              :style="{ background: servidor.estado?.toLowerCase().includes('run') || servidor.estado?.toLowerCase().includes('activo') ? '#5AAB37' : servidor.estado?.toLowerCase().includes('stop') || servidor.estado?.toLowerCase().includes('parado') ? '#AA2222' : '#c8851a' }">
+        </span>
         <span style="font-weight:700; font-size:14px; color:var(--mc-text);">{{ servidor.estado || 'Desconocido' }}</span>
       </div>
-
       <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
         <button @click="iniciar" style="font-size:13px;">▶ Iniciar</button>
         <button class="peligro" @click="parar" style="font-size:13px;">⏹ Parar</button>
@@ -106,10 +95,7 @@ onMounted(cargar)
                 style="font-size:13px; background:var(--mc-tan-dark); border-bottom-color:var(--mc-border-dark); color:var(--mc-text);">
           ↻ Refrescar estado
         </button>
-        <button class="peligro" @click="eliminar"
-                style="font-size:13px; margin-left:auto;">
-          🗑 Eliminar servidor
-        </button>
+        <button class="peligro" @click="eliminar" style="font-size:13px; margin-left:auto;">🗑 Eliminar servidor</button>
       </div>
     </div>
 
@@ -136,7 +122,6 @@ onMounted(cargar)
           <label>OPs (Administradores)</label>
           <input v-model="servidor.administradores" />
         </div>
-
         <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="servidor.pvp" /> PvP activado
         </label>

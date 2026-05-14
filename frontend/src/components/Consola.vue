@@ -78,13 +78,11 @@ async function enviar() {
         ↻ Reconectando...
       </span>
     </div>
-
     <div ref="cajaLogs"
          style="background:#0D0D0D; color:#39FF14; padding:14px; height:420px; overflow-y:auto; font-family:'Courier New', monospace; font-size:12px; border-radius:4px; border:2px solid #222; line-height:1.5;">
       <div v-if="!lineas.length" style="color:#444; font-style:italic;">Esperando conexión con el servidor...</div>
       <div v-for="(l, i) in lineas" :key="i" style="word-break:break-all;">{{ l }}</div>
     </div>
-
     <form @submit.prevent="enviar" style="display:flex; gap:8px; margin-top:10px;">
       <input v-model="comando" placeholder="Escribe un comando (ej: say Hola, list, time set day)"
              style="flex:1; background:#1a1a1a; color:#39FF14; border-color:#333; font-family:'Courier New', monospace; margin:0;" />

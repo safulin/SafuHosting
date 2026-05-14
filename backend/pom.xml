@@ -6,7 +6,7 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>4.0.5</version>
-		<relativePath/>
+		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.safuhost</groupId>
 	<artifactId>backend</artifactId>
@@ -97,6 +97,7 @@
             <version>0.1.4</version>
         </dependency>
 
+        <!-- Dependencias para generar y validar tokens JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>

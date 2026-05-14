@@ -15,7 +15,7 @@ function logout() {
 
 <template>
   <div class="barra" v-if="logueado && !['/login', '/registro'].includes(route.path)">
-    <strong>⛏ SafuHost</strong>
+    <strong>SafuHost</strong>
     <router-link to="/servidores">Mis servidores</router-link>
     <button @click="logout">Cerrar sesión</button>
   </div>

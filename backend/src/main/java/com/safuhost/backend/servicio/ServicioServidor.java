@@ -37,9 +37,6 @@ public class ServicioServidor {
     @Autowired
     private ServicioUsuario servicioUsuario;
 
-    @Autowired
-    private ServicioUpnp servicioUpnp;
-
     public Servidor crearServidor(Servidor nuevo) {
 
         if (repositorio.existsByNombre(nuevo.getNombre())) {
@@ -74,9 +71,11 @@ public class ServicioServidor {
         Ports portBindings = new Ports();
         portBindings.bind(puertoInterno, Ports.Binding.bindPort(puertoLibre));
 
+        String tagJava = resolverTagJava(nuevo.getVersion());
+
         try {
             dockerClient.pullImageCmd("itzg/minecraft-server")
-                    .withTag("latest")
+                    .withTag(tagJava)
                     .start()
                     .awaitCompletion();
         } catch (InterruptedException e) {
@@ -84,7 +83,7 @@ public class ServicioServidor {
             throw new RuntimeException("La descarga de la imagen de Minecraft fue interrumpida", e);
         }
 
-        CreateContainerResponse container = dockerClient.createContainerCmd("itzg/minecraft-server")
+        CreateContainerResponse container = dockerClient.createContainerCmd("itzg/minecraft-server:" + tagJava)
                 .withName("mc-" + nuevo.getNombre())
                 .withEnv(env)
                 .withHostConfig(HostConfig.newHostConfig()
@@ -112,7 +111,6 @@ public class ServicioServidor {
         }
 
         dockerClient.startContainerCmd(container.getId()).exec();
-        servicioUpnp.abrirPuerto(puertoLibre);
 
         nuevo.setIdContenedor(container.getId());
         nuevo.setEstado("INICIANDO");
@@ -133,7 +131,6 @@ public class ServicioServidor {
     public Servidor pararServidor(Long id) {
         Servidor servidor = obtenerPorId(id);
         dockerClient.stopContainerCmd(servidor.getIdContenedor()).exec();
-        servicioUpnp.cerrarPuerto(servidor.getPuerto());
         servidor.setEstado("APAGADO");
         return repositorio.save(servidor);
     }
@@ -141,7 +138,6 @@ public class ServicioServidor {
     public Servidor iniciarServidor(Long id) {
         Servidor servidor = obtenerPorId(id);
         dockerClient.startContainerCmd(servidor.getIdContenedor()).exec();
-        servicioUpnp.abrirPuerto(servidor.getPuerto());
         servidor.setEstado("INICIANDO");
         return repositorio.save(servidor);
     }
@@ -159,7 +155,6 @@ public class ServicioServidor {
         } catch (RuntimeException e) {
         }
 
-        servicioUpnp.cerrarPuerto(servidor.getPuerto());
         repositorio.deleteById(id);
     }
 
@@ -218,5 +213,16 @@ public class ServicioServidor {
 
     public Servidor quitarDeWhitelist(Long id, String jugador) {
         return servicioWhitelist.quitarDeWhitelist(id, jugador);
+    }
+
+    private String resolverTagJava(String version) {
+        if (version == null) return "java21";
+        try {
+            String[] partes = version.split("\\.");
+            int minor = Integer.parseInt(partes.length > 1 ? partes[1] : "0");
+            if (minor <= 11) return "java8";
+            if (minor <= 16) return "java11";
+        } catch (NumberFormatException ignored) {}
+        return "java21";
     }
 }

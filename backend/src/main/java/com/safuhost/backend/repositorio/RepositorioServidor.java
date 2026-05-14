@@ -12,4 +12,5 @@ public interface RepositorioServidor extends JpaRepository<Servidor, Long> {
     boolean existsByPuerto(Integer puerto);
     boolean existsByNombre(String nombre);
     List<Servidor> findByPropietario(Usuario propietario);
+    List<Servidor> findByEstadoIn(List<String> estados);
 }

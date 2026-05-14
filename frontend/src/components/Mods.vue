@@ -162,7 +162,7 @@ onMounted(() => { cargarInstalados(); cargarServidor() })
         <button class="peligro" @click="eliminar(m)" style="font-size:12px; padding:5px 10px; margin:0;">Eliminar</button>
       </div>
     </div>
-    <p v-else style="color:var(--mc-text-muted); text-align:center; padding:20px; font-size:13px;">
+    <p v-if="!instalados.length" style="color:var(--mc-text-muted); text-align:center; padding:20px; font-size:13px;">
       Ningún mod instalado
     </p>
 

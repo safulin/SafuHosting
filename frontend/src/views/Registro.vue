@@ -28,21 +28,20 @@ async function registrar() {
 </script>
 
 <template>
-  <div style="display:flex; justify-content:center; align-items:center; min-height:80vh; padding:20px;">
+  <div style="min-height:100vh; margin:-20px; background-image:url('/img/fondousers.png'); background-size:cover; background-position:top center; display:flex; align-items:center; justify-content:center; padding:20px;">
     <div class="tarjeta" style="width:100%; max-width:420px;">
-      <h1 style="text-align:center; margin-bottom:8px; font-size:15px;">Crear cuenta</h1>
-      <p style="text-align:center; color:var(--mc-text-muted); font-size:12px; margin-bottom:24px;">Únete a SafuHost</p>
+      <div style="text-align:center; margin-bottom:20px;">
+        <h1 style="font-size:14px; color:var(--mc-text);">Crear cuenta</h1>
+        <p style="color:var(--mc-text-muted); font-size:12px; margin-top:6px;">Únete a SafuHost</p>
+      </div>
 
       <form @submit.prevent="registrar">
         <label>Usuario</label>
         <input v-model="username" placeholder="Tu nombre de usuario" required />
-
         <label style="margin-top:12px;">Email</label>
         <input v-model="email" type="email" placeholder="tu@email.com" required />
-
         <label style="margin-top:12px;">Contraseña</label>
         <input v-model="password" type="password" placeholder="Elige una contraseña" required />
-
         <button type="submit" style="width:100%; margin-top:20px; padding:12px; font-size:14px;">
           Crear cuenta
         </button>
@@ -50,7 +49,6 @@ async function registrar() {
 
       <p v-if="error" class="error" style="margin-top:12px;">{{ error }}</p>
       <p v-if="ok" class="ok" style="margin-top:12px;">{{ ok }}</p>
-
       <p style="margin-top:16px; text-align:center; font-size:13px; color:var(--mc-text-muted);">
         ¿Ya tienes cuenta? <router-link to="/login">Inicia sesión</router-link>
       </p>

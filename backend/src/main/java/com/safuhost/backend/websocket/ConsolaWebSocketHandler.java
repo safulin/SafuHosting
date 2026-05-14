@@ -29,11 +29,17 @@ public class ConsolaWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(WebSocketSession sesion) throws Exception {
+        String username = (String) sesion.getAttributes().get("username");
+
         String ruta = sesion.getUri().getPath();
         Long id = Long.parseLong(ruta.substring(ruta.lastIndexOf('/') + 1));
 
-        Servidor servidor = repositorio.findById(id)
-                .orElseThrow(() -> new RuntimeException("No existe ningún servidor con el id: " + id));
+        Servidor servidor = repositorio.findById(id).orElse(null);
+
+        if (servidor == null || !servidor.getPropietario().getUsername().equals(username)) {
+            sesion.close(CloseStatus.NOT_ACCEPTABLE);
+            return;
+        }
 
         Closeable stream = dockerClient.logContainerCmd(servidor.getIdContenedor())
                 .withStdOut(true)

@@ -19,7 +19,8 @@ function conectar() {
   }
 
   const protocolo = location.protocol === 'https:' ? 'wss' : 'ws'
-  ws.value = new WebSocket(`${protocolo}://${location.host}/ws/consola/${props.id}`)
+  const token = localStorage.getItem('token')
+  ws.value = new WebSocket(`${protocolo}://${location.host}/ws/consola/${props.id}?token=${token}`)
 
   ws.value.onmessage = async (evento) => {
     lineas.value.push(evento.data)

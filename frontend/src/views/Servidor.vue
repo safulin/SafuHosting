@@ -11,6 +11,8 @@ const router = useRouter()
 
 const servidor = ref(null)
 const estadoReal = ref('')
+const ipPublica = ref('')
+const copiado = ref(false)
 const error = ref('')
 const consolaRef = ref(null)
 
@@ -21,6 +23,28 @@ async function cargar() {
   } catch (e) {
     error.value = e.response?.data || 'Error al cargar'
   }
+}
+
+async function cargarIp() {
+  try {
+    const { data } = await api.get('/api/servidores/ip-publica')
+    ipPublica.value = data.ip || ''
+    // Si devuelve dominio (DuckDNS fallback) reintenta en 5s por si UPnP aún está descubriendo
+    if (ipPublica.value && ipPublica.value.includes('.duckdns.org')) {
+      setTimeout(cargarIp, 5000)
+    }
+  } catch (e) {
+    ipPublica.value = ''
+  }
+}
+
+async function copiarDireccion() {
+  if (!ipPublica.value || !servidor.value?.puerto) return
+  try {
+    await navigator.clipboard.writeText(`${ipPublica.value}:${servidor.value.puerto}`)
+    copiado.value = true
+    setTimeout(() => copiado.value = false, 2000)
+  } catch (e) {}
 }
 
 async function consultarEstado() {
@@ -60,7 +84,7 @@ async function eliminar() {
   router.push('/servidores')
 }
 
-onMounted(cargar)
+onMounted(() => Promise.all([cargar(), cargarIp()]))
 </script>
 
 <template>
@@ -74,9 +98,19 @@ onMounted(cargar)
       </div>
       <div>
         <h1 style="color:var(--mc-text-light); text-shadow:3px 3px 0 rgba(0,0,0,0.4); font-size:16px;">{{ servidor.nombre }}</h1>
-        <p style="color:var(--mc-tan-dark); font-size:13px; margin-top:4px;">
-          {{ servidor.version }} · {{ servidor.tipo }} · Puerto {{ servidor.puerto }}
+        <p style="color:#fff; font-size:13px; margin-top:4px; opacity:0.85;">
+          {{ servidor.version }} · {{ servidor.tipo }}
         </p>
+        <div v-if="ipPublica && servidor.puerto" style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:11px; color:rgba(255,255,255,0.7);">Dirección de conexión:</span>
+          <code style="font-size:13px; background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.2); border-radius:3px; padding:2px 8px; color:#fff; font-family:'Courier New',monospace;">
+            {{ ipPublica }}:{{ servidor.puerto }}
+          </code>
+          <button @click="copiarDireccion"
+                  style="font-size:11px; padding:3px 10px; margin:0; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.25); border-bottom:none; color:#fff;">
+            {{ copiado ? '✓ Copiado' : '📋 Copiar' }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -131,6 +165,10 @@ onMounted(cargar)
         <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="servidor.usarWhitelist" /> Whitelist activada
         </label>
+        <div v-if="servidor.tipo === 'FORGE' || servidor.tipo === 'FABRIC'">
+          <label>Level Type <span style="font-size:11px; color:var(--mc-text-muted); font-weight:normal;">(requiere reiniciar + borrar mundo)</span></label>
+          <input v-model="servidor.levelType" placeholder="Ej: skylands:skylands" />
+        </div>
       </div>
       <button @click="guardar" style="margin-top:16px; font-size:13px;">Guardar cambios</button>
     </div>

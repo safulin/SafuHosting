@@ -103,7 +103,14 @@ public class ServicioMods {
         if (!esLoaderValido(servidor.getTipo())) {
             throw new RuntimeException("Solo se pueden instalar mods en servidores FORGE o FABRIC");
         }
-        return descargarMod(servidor.getNombre(), servidor.getTipo(), servidor.getVersion(), modrinthId);
+        String jar = descargarMod(servidor.getNombre(), servidor.getTipo(), servidor.getVersion(), modrinthId);
+        borrarCarpetaMundo(servidor.getNombre());
+        return jar;
+    }
+
+    public void resetearMundo(Long id) {
+        Servidor servidor = obtenerYVerificar(id);
+        borrarCarpetaMundo(servidor.getNombre());
     }
 
     public String instalarModEnCarpeta(String nombreServidor, String tipo, String version, String modrinthId) throws IOException {
@@ -135,6 +142,20 @@ public class ServicioMods {
         File mod = new File(CARPETA_BASE + servidor.getNombre() + "/mods/" + nombreMod);
         if (!mod.exists()) throw new RuntimeException("No existe el mod: " + nombreMod);
         if (!mod.delete()) throw new RuntimeException("No se pudo eliminar el mod: " + nombreMod);
+    }
+
+    private void borrarCarpetaMundo(String nombreServidor) {
+        File mundo = new File(CARPETA_BASE + nombreServidor + "/world");
+        if (mundo.exists() && mundo.isDirectory()) {
+            try {
+                org.apache.commons.io.FileUtils.deleteDirectory(mundo);
+                System.out.println("[Mundo] Carpeta world borrada para '" + nombreServidor + "' — se regenerará con los nuevos mods al iniciar");
+            } catch (IOException e) {
+                System.err.println("[Mundo] No se pudo borrar el mundo de '" + nombreServidor + "': " + e.getMessage());
+            }
+        } else {
+            System.out.println("[Mundo] No había carpeta world en '" + nombreServidor + "' (se creará nueva al iniciar)");
+        }
     }
 
     private boolean esLoaderValido(String tipo) {

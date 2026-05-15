@@ -12,6 +12,8 @@ import com.github.dockerjava.api.model.HostConfig;
 import com.github.dockerjava.api.model.Ports;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class ServicioServidor {
@@ -36,6 +38,9 @@ public class ServicioServidor {
 
     @Autowired
     private ServicioUsuario servicioUsuario;
+
+    @Autowired
+    private ServicioUpnp servicioUpnp;
 
     public Servidor crearServidor(Servidor nuevo) {
 
@@ -63,6 +68,9 @@ public class ServicioServidor {
             env.add("WHITELIST=" + nuevo.getListaBlanca());
         }
         env.add("OPS=" + nuevo.getAdministradores());
+        if (nuevo.getLevelType() != null && !nuevo.getLevelType().isBlank()) {
+            env.add("LEVEL_TYPE=" + nuevo.getLevelType());
+        }
         env.add("AUTOPAUSE=false");
         env.add("AUTOPAUSE_TIMEOUT_EST=300");
         env.add("CREATE_CONSOLE_IN_PIPE=true");
@@ -112,6 +120,14 @@ public class ServicioServidor {
 
         dockerClient.startContainerCmd(container.getId()).exec();
 
+        // Abrir puerto UPnP inmediatamente y revalidar a los 10 segundos
+        servicioUpnp.abrirPuerto(puertoLibre);
+        final int puertoFinal = puertoLibre;
+        CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS).execute(() -> {
+            System.out.println("[UPnP] Revalidando puerto " + puertoFinal + " tras creación del servidor...");
+            servicioUpnp.abrirPuerto(puertoFinal);
+        });
+
         nuevo.setIdContenedor(container.getId());
         nuevo.setEstado("INICIANDO");
         return repositorio.save(nuevo);
@@ -131,6 +147,7 @@ public class ServicioServidor {
     public Servidor pararServidor(Long id) {
         Servidor servidor = obtenerPorId(id);
         dockerClient.stopContainerCmd(servidor.getIdContenedor()).exec();
+        servicioUpnp.cerrarPuerto(servidor.getPuerto());
         servidor.setEstado("APAGADO");
         return repositorio.save(servidor);
     }
@@ -138,6 +155,13 @@ public class ServicioServidor {
     public Servidor iniciarServidor(Long id) {
         Servidor servidor = obtenerPorId(id);
         dockerClient.startContainerCmd(servidor.getIdContenedor()).exec();
+        // Reabrir puerto UPnP e inmediato + revalidación a los 10 segundos
+        servicioUpnp.abrirPuerto(servidor.getPuerto());
+        final int puerto = servidor.getPuerto();
+        CompletableFuture.delayedExecutor(10, TimeUnit.SECONDS).execute(() -> {
+            System.out.println("[UPnP] Revalidando puerto " + puerto + " tras inicio del servidor...");
+            servicioUpnp.abrirPuerto(puerto);
+        });
         servidor.setEstado("INICIANDO");
         return repositorio.save(servidor);
     }
@@ -155,6 +179,7 @@ public class ServicioServidor {
         } catch (RuntimeException e) {
         }
 
+        servicioUpnp.cerrarPuerto(servidor.getPuerto());
         repositorio.deleteById(id);
     }
 
@@ -170,6 +195,7 @@ public class ServicioServidor {
         servidor.setAdministradores(datos.getAdministradores());
         servidor.setModoOnline(datos.isModoOnline());
         servidor.setUrlIcono(datos.getUrlIcono());
+        servidor.setLevelType(datos.getLevelType());
 
         return repositorio.save(servidor);
     }
@@ -181,6 +207,10 @@ public class ServicioServidor {
     public void enviarComandoConsola(Long id, String comando) {
         Servidor servidor = obtenerPorId(id);
         servicioDocker.ejecutarComandoEnContenedor(servidor.getIdContenedor(), comando);
+    }
+
+    public void resetearMundo(Long id) {
+        servicioMods.resetearMundo(id);
     }
 
     public List<String> listarMods(Long id) {
@@ -196,7 +226,20 @@ public class ServicioServidor {
     }
 
     public String instalarModModrinth(Long id, String modrinthId) throws java.io.IOException {
-        return servicioMods.instalarModModrinth(id, modrinthId);
+        String jar = servicioMods.instalarModModrinth(id, modrinthId);
+        // Reiniciar el servidor para que genere un mundo nuevo con el mod
+        Servidor servidor = obtenerPorId(id);
+        try { dockerClient.stopContainerCmd(servidor.getIdContenedor()).exec(); } catch (Exception ignored) {}
+        try {
+            dockerClient.startContainerCmd(servidor.getIdContenedor()).exec();
+            servidor.setEstado("INICIANDO");
+            repositorio.save(servidor);
+            servicioUpnp.abrirPuerto(servidor.getPuerto());
+            System.out.println("[Mods] Servidor '" + servidor.getNombre() + "' reiniciado tras instalar " + jar);
+        } catch (Exception e) {
+            System.err.println("[Mods] No se pudo reiniciar el servidor: " + e.getMessage());
+        }
+        return jar;
     }
 
     public void eliminarMod(Long id, String nombreMod) {

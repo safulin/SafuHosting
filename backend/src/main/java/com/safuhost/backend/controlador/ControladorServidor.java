@@ -2,11 +2,14 @@ package com.safuhost.backend.controlador;
 
 import com.safuhost.backend.modelo.Servidor;
 import com.safuhost.backend.servicio.ServicioServidor;
+import com.safuhost.backend.servicio.ServicioUpnp;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Arrays;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/servidores")
@@ -15,6 +18,20 @@ public class ControladorServidor {
 
     @Autowired
     private ServicioServidor servicio;
+
+    @Autowired
+    private ServicioUpnp servicioUpnp;
+
+    @Value("${safuhost.host-publico:safuhost.duckdns.org}")
+    private String hostPublico;
+
+    @GetMapping("/ip-publica")
+    public ResponseEntity<?> obtenerIpPublica() {
+        // Intenta usar la IP real de UPnP; si no está disponible usa el host configurado (DuckDNS)
+        String ip = servicioUpnp.getIpExterna();
+        String host = (ip != null && !ip.isBlank()) ? ip : hostPublico;
+        return ResponseEntity.ok(Map.of("ip", host));
+    }
 
     @PostMapping("/crear")
     public ResponseEntity<?> crearServidor(@RequestBody Servidor nuevo) {
@@ -86,6 +103,16 @@ public class ControladorServidor {
         try {
             String estado = servicio.obtenerEstado(id);
             return ResponseEntity.ok(estado);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}/mundo")
+    public ResponseEntity<?> resetearMundo(@PathVariable Long id) {
+        try {
+            servicio.resetearMundo(id);
+            return ResponseEntity.ok("Mundo reseteado. Se generará uno nuevo al iniciar el servidor.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

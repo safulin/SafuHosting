@@ -19,6 +19,7 @@ public class ServicioUpnp {
     private RepositorioServidor repositorio;
 
     private final CompletableFuture<GatewayDevice> gatewayFuture = new CompletableFuture<>();
+    private volatile String ipExternaCache = null;
 
     @PostConstruct
     public void inicializar() {
@@ -28,7 +29,8 @@ public class ServicioUpnp {
                 discover.discover();
                 GatewayDevice gw = discover.getValidGateway();
                 if (gw != null) {
-                    System.out.println("[UPnP] Gateway: " + gw.getFriendlyName() + " | IP externa: " + gw.getExternalIPAddress());
+                    ipExternaCache = gw.getExternalIPAddress();
+                    System.out.println("[UPnP] Gateway: " + gw.getFriendlyName() + " | IP externa: " + ipExternaCache);
                     gatewayFuture.complete(gw);
                     restaurarPuertos(gw);
                 } else {
@@ -77,6 +79,15 @@ public class ServicioUpnp {
         } catch (Exception e) {
             System.err.println("[UPnP] Error al abrir puerto " + puerto + ": " + e.getMessage());
         }
+    }
+
+    public String getIpExterna() {
+        if (ipExternaCache != null) return ipExternaCache;
+        try {
+            GatewayDevice gw = gatewayFuture.get(15, TimeUnit.SECONDS);
+            if (gw != null) return ipExternaCache;
+        } catch (Exception ignored) {}
+        return null;
     }
 
     public void cerrarPuerto(int puerto) {

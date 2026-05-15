@@ -4,6 +4,7 @@ import { api } from '../api.js'
 
 const servidores = ref([])
 const versiones = ref([])
+const ipPublica = ref('')
 const error = ref('')
 const cargando = ref(false)
 
@@ -19,8 +20,17 @@ const nuevo = ref({
   listaBlanca: '',
   administradores: '',
   urlIcono: '',
+  levelType: '',
   modIniciales: []
 })
+
+// Mods que requieren level-type específico
+const MOD_LEVEL_TYPES = {
+  'skylands': 'skylands:skylands',
+  'skylands genesis': 'skylands:skylands',
+  'skyland': 'skylands:skylands',
+  'sky villages': 'skyland:skyland',
+}
 
 const busquedaMod = ref('')
 const resultadosMods = ref([])
@@ -63,6 +73,14 @@ async function añadirMod(mod) {
   try {
     const deps = await verificarYAñadir(mod.project_id, mod.title)
     dependenciasPendientes.value = deps.filter(d => !nuevo.value.modIniciales.some(m => m.id === d.id))
+    // Autodetectar level-type según el nombre del mod
+    const tituloLower = mod.title.toLowerCase()
+    for (const [clave, levelType] of Object.entries(MOD_LEVEL_TYPES)) {
+      if (tituloLower.includes(clave)) {
+        nuevo.value.levelType = levelType
+        break
+      }
+    }
   } catch (e) {
     erroresCompatibilidad.value[mod.project_id] = e.message || 'Error al verificar compatibilidad'
   } finally {
@@ -82,6 +100,24 @@ async function añadirDependencias() {
 
 function quitarMod(modId) {
   nuevo.value.modIniciales = nuevo.value.modIniciales.filter(m => m.id !== modId)
+}
+
+async function cargarIpPublica() {
+  try {
+    const { data } = await api.get('/api/servidores/ip-publica')
+    ipPublica.value = data.ip || ''
+    if (ipPublica.value && ipPublica.value.includes('.duckdns.org')) {
+      setTimeout(cargarIpPublica, 5000)
+    }
+  } catch (e) {
+    ipPublica.value = ''
+  }
+}
+
+async function copiarIP(texto) {
+  try {
+    await navigator.clipboard.writeText(texto)
+  } catch (e) {}
 }
 
 async function cargar() {
@@ -135,7 +171,7 @@ async function eliminar(id) {
 
 onMounted(async () => {
   await cargarVersiones()
-  await cargar()
+  await Promise.all([cargar(), cargarIpPublica()])
 })
 </script>
 
@@ -206,6 +242,10 @@ onMounted(async () => {
 
       <div v-if="nuevo.tipo === 'FORGE' || nuevo.tipo === 'FABRIC'"
            style="margin-top:18px; border-top:2px solid var(--mc-tan-dark); padding-top:16px;">
+        <div style="margin-bottom:16px;">
+          <label>Level Type <span style="font-size:11px; color:var(--mc-text-muted); font-weight:normal;">(se rellena automáticamente con algunos mods)</span></label>
+          <input v-model="nuevo.levelType" placeholder="Ej: skylands:skylands (dejar vacío para mundo normal)" />
+        </div>
         <h3 style="margin-bottom:12px;">Mods iniciales</h3>
         <div style="display:flex; gap:8px; margin-bottom:10px;">
           <input v-model="busquedaMod" placeholder="Buscar mod en Modrinth (ej: sodium, create)" style="flex:1; margin:0;" @keyup.enter="buscarModsParaCrear" />
@@ -288,7 +328,13 @@ onMounted(async () => {
               {{ s.nombre }}
             </div>
             <div style="font-size:12px; color:var(--mc-text-muted);">{{ s.version }} · {{ s.tipo }}</div>
-            <div style="font-size:12px; color:var(--mc-text-muted);">Puerto: {{ s.puerto }}</div>
+            <div v-if="ipPublica && s.puerto"
+                 @click="copiarIP(`${ipPublica}:${s.puerto}`)"
+                 title="Clic para copiar"
+                 style="font-size:12px; color:var(--mc-text); font-family:'Courier New',monospace; background:var(--mc-tan-dark); border:1px solid var(--mc-border-dark); border-radius:3px; padding:2px 6px; margin-top:4px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+              📋 {{ ipPublica }}:{{ s.puerto }}
+            </div>
+            <div v-else style="font-size:12px; color:var(--mc-text-muted);">Puerto: {{ s.puerto }}</div>
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">

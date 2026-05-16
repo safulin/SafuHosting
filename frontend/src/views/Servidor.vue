@@ -165,10 +165,6 @@ onMounted(() => Promise.all([cargar(), cargarIp()]))
         <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
           <input type="checkbox" v-model="servidor.usarWhitelist" /> Whitelist activada
         </label>
-        <div v-if="servidor.tipo === 'FORGE' || servidor.tipo === 'FABRIC'">
-          <label>Level Type <span style="font-size:11px; color:var(--mc-text-muted); font-weight:normal;">(requiere reiniciar + borrar mundo)</span></label>
-          <input v-model="servidor.levelType" placeholder="Ej: skylands:skylands" />
-        </div>
       </div>
       <button @click="guardar" style="margin-top:16px; font-size:13px;">Guardar cambios</button>
     </div>

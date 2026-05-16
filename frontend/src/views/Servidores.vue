@@ -20,17 +20,8 @@ const nuevo = ref({
   listaBlanca: '',
   administradores: '',
   urlIcono: '',
-  levelType: '',
   modIniciales: []
 })
-
-// Mods que requieren level-type específico
-const MOD_LEVEL_TYPES = {
-  'skylands': 'skylands:skylands',
-  'skylands genesis': 'skylands:skylands',
-  'skyland': 'skylands:skylands',
-  'sky villages': 'skyland:skyland',
-}
 
 const busquedaMod = ref('')
 const resultadosMods = ref([])
@@ -73,14 +64,6 @@ async function añadirMod(mod) {
   try {
     const deps = await verificarYAñadir(mod.project_id, mod.title)
     dependenciasPendientes.value = deps.filter(d => !nuevo.value.modIniciales.some(m => m.id === d.id))
-    // Autodetectar level-type según el nombre del mod
-    const tituloLower = mod.title.toLowerCase()
-    for (const [clave, levelType] of Object.entries(MOD_LEVEL_TYPES)) {
-      if (tituloLower.includes(clave)) {
-        nuevo.value.levelType = levelType
-        break
-      }
-    }
   } catch (e) {
     erroresCompatibilidad.value[mod.project_id] = e.message || 'Error al verificar compatibilidad'
   } finally {
@@ -242,10 +225,6 @@ onMounted(async () => {
 
       <div v-if="nuevo.tipo === 'FORGE' || nuevo.tipo === 'FABRIC'"
            style="margin-top:18px; border-top:2px solid var(--mc-tan-dark); padding-top:16px;">
-        <div style="margin-bottom:16px;">
-          <label>Level Type <span style="font-size:11px; color:var(--mc-text-muted); font-weight:normal;">(se rellena automáticamente con algunos mods)</span></label>
-          <input v-model="nuevo.levelType" placeholder="Ej: skylands:skylands (dejar vacío para mundo normal)" />
-        </div>
         <h3 style="margin-bottom:12px;">Mods iniciales</h3>
         <div style="display:flex; gap:8px; margin-bottom:10px;">
           <input v-model="busquedaMod" placeholder="Buscar mod en Modrinth (ej: sodium, create)" style="flex:1; margin:0;" @keyup.enter="buscarModsParaCrear" />

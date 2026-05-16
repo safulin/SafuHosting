@@ -44,7 +44,7 @@ async function instalarMod(modrinthId, titulo) {
   mensaje.value = `Instalando ${titulo}...`
   try {
     await api.post(`/api/servidores/${props.id}/mods/instalar/${modrinthId}`)
-    mensaje.value = `${titulo} instalado. Reinicia el servidor para que cargue.`
+    mensaje.value = `✅ ${titulo} instalado. El servidor se está reiniciando con el mundo nuevo.`
     await cargarInstalados()
   } catch (e) {
     error.value = e.response?.data || 'Error al instalar'

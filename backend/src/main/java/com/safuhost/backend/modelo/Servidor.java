@@ -38,7 +38,6 @@ public class Servidor {
     private boolean usarWhitelist;
     private String listaBlanca;
     private boolean modoOnline;
-    private String levelType;
 
     @Transient
     private List<String> modIniciales = new ArrayList<>();

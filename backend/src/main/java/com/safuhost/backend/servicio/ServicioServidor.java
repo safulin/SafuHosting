@@ -149,6 +149,7 @@ public class ServicioServidor {
 
         // Guardar valores antiguos para comparar
         String dificultadAntigua    = s.getDificultad();
+        String modoJuegoAntiguo     = s.getModoJuego();
         String adminsAntiguos       = s.getAdministradores();
         boolean whitelistAntigua    = s.isUsarWhitelist();
         String listaBlancaAntigua   = s.getListaBlanca();
@@ -165,19 +166,25 @@ public class ServicioServidor {
         Servidor guardado = repositorio.save(s);
 
         // Aplicar cambios en vivo al contenedor en marcha
-        aplicarCambiosEnVivo(guardado, dificultadAntigua, adminsAntiguos, whitelistAntigua, listaBlancaAntigua);
+        aplicarCambiosEnVivo(guardado, dificultadAntigua, modoJuegoAntiguo, adminsAntiguos, whitelistAntigua, listaBlancaAntigua);
 
         return guardado;
     }
 
     /** Envía comandos al servidor Minecraft en marcha para reflejar los cambios sin reiniciar */
-    private void aplicarCambiosEnVivo(Servidor s, String dificultadAntigua, String adminsAntiguos,
-                                       boolean whitelistAntigua, String listaBlancaAntigua) {
+    private void aplicarCambiosEnVivo(Servidor s, String dificultadAntigua, String modoJuegoAntiguo,
+                                       String adminsAntiguos, boolean whitelistAntigua, String listaBlancaAntigua) {
         if (s.getIdContenedor() == null) return;
 
         // Dificultad
         if (s.getDificultad() != null && !s.getDificultad().equals(dificultadAntigua)) {
             enviarComandoSeguro(s, "difficulty " + s.getDificultad());
+        }
+
+        // Modo de juego: cambia el por defecto (para nuevos) + a todos los conectados
+        if (s.getModoJuego() != null && !s.getModoJuego().equals(modoJuegoAntiguo)) {
+            enviarComandoSeguro(s, "defaultgamemode " + s.getModoJuego());
+            enviarComandoSeguro(s, "gamemode " + s.getModoJuego() + " @a");
         }
 
         // OPs: comparar listas y aplicar diferencias
